@@ -1,0 +1,55 @@
+# Async Agentic Workflows
+
+Run LangGraph agents as durable, asynchronous Temporal workflows. Requests pass through a Redis token-bucket rate limiter, are authenticated through a login API, and emit a `RUN_FINISHED` event to Kafka when the agent finishes. Consumers of that event send a notification and write a Postgres record.
+
+![Architecture](docs/architecture.png)
+
+```
+User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka topic ─┬─▶ Notification
+        rate limiting       │   LangGraph agent       RUN_FINISHED  └─▶ Postgres record
+                            │   agent run API
+                            └─▶ Login API
+```
+
+## Phases
+
+| # | Phase | Status |
+|---|-------|--------|
+| 1 | [Simple LangGraph agent with one tool](docs/phases/phase-1-langgraph-agent.md) | ✅ done |
+| 2 | [Infrastructure in Docker Compose](docs/phases/phase-2-infrastructure.md) | ⏳ |
+| 3 | [Temporal workflow + agent run API](docs/phases/phase-3-temporal.md) | ⏳ |
+| 4 | [Kafka producer and consumers](docs/phases/phase-4-kafka.md) | ⏳ |
+| 5 | [Login API](docs/phases/phase-5-login-api.md) | ⏳ |
+| 6 | [Redis token-bucket rate limiting](docs/phases/phase-6-rate-limiting.md) | ⏳ |
+
+## Quick start
+
+Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
+
+```bash
+cp .env.example .env        # fill in OPENAI_API_KEY (and OPENAI_BASE_URL for a gateway)
+uv sync
+uv run agent "What is new in the latest Python release?"
+uv run pytest
+```
+
+For a manual test chat UI (testing only, not part of the product):
+
+```bash
+uv sync --group ui
+uv run streamlit run ui/app.py
+```
+
+## Layout
+
+```
+src/agentic_workflows/
+  config.py          settings loaded from env / .env
+  agent/
+    graph.py         LangGraph StateGraph: model ⇄ tools loop
+    tools.py         web_search tool (DuckDuckGo, no API key)
+    cli.py           `uv run agent "<prompt>"`
+ui/app.py            Streamlit playground for manual testing
+tests/               unit tests (fake chat model, no network)
+docs/phases/         one design doc per phase
+```
