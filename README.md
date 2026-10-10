@@ -16,19 +16,20 @@ User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka to
 | # | Phase | Status |
 |---|-------|--------|
 | 1 | [Simple LangGraph agent with one tool](docs/phases/phase-1-langgraph-agent.md) | ✅ done |
-| 2 | [Infrastructure in Docker Compose](docs/phases/phase-2-infrastructure.md) | ⏳ |
-| 3 | [Temporal workflow + agent run API](docs/phases/phase-3-temporal.md) | ⏳ |
+| 2 | [Infrastructure in Docker Compose](docs/phases/phase-2-infrastructure.md) | ✅ done |
+| 3 | [Temporal workflow + agent run API](docs/phases/phase-3-temporal.md) (+ Tilt dev loop) | ⏳ |
 | 4 | [Kafka producer and consumers](docs/phases/phase-4-kafka.md) | ⏳ |
 | 5 | [Login API](docs/phases/phase-5-login-api.md) | ⏳ |
 | 6 | [Redis token-bucket rate limiting](docs/phases/phase-6-rate-limiting.md) | ⏳ |
 
 ## Quick start
 
-Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.13, [uv](https://docs.astral.sh/uv/) and Docker.
 
 ```bash
 cp .env.example .env        # fill in OPENAI_API_KEY (and OPENAI_BASE_URL for a gateway)
 uv sync
+make up && make smoke    # Postgres, Temporal (+UI :8233), Kafka (+UI :8081), Redis
 uv run agent "What is new in the latest Python release?"
 uv run pytest
 ```
@@ -52,4 +53,7 @@ src/agentic_workflows/
 ui/app.py            Streamlit playground for manual testing
 tests/               unit tests (fake chat model, no network)
 docs/phases/         one design doc per phase
+docker-compose.yml   backing services (phase 2)
+infra/               Postgres init script, Temporal dynamic config
+scripts/smoke.py     host-side reachability check (`make smoke`)
 ```
