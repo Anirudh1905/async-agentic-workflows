@@ -6,13 +6,17 @@
 flowchart TB
     subgraph compose["docker compose (project: async-agentic-workflows)"]
         PG[("postgres :5433<br/>dbs: agentic, temporal, temporal_visibility")]
-        TS["temporal :7233<br/>(auto-setup)"]
+        TSC["temporal-schema (one-shot)<br/>create / migrate schemas"]
+        TS["temporal :7233<br/>server 1.32"]
+        TI["temporal-init (one-shot)<br/>register default namespace"]
         TUI["temporal-ui :8233"]
         K[("kafka :9092<br/>KRaft, single node")]
         KI["kafka-init (one-shot)<br/>creates RUN_FINISHED, RUN_FINISHED.DLQ"]
         KUI["kafka-ui :8081"]
         R[("redis :6380<br/>AOF on")]
+        TSC --> PG
         TS --> PG
+        TI --> TS
         TUI --> TS
         KI --> K
         KUI --> K
@@ -25,7 +29,9 @@ flowchart TB
 | Service | Image | Host port | Used in |
 | --- | --- | --- | --- |
 | `postgres` | `postgres:17-alpine` | 5433 | Temporal persistence; `agentic` db for run records (phase 4) and users (phase 5) |
-| `temporal` | `temporalio/auto-setup:1.29.7` | 7233 | Phase 3 |
+| `temporal-schema` | `temporalio/admin-tools:1.32.1` | — | creates or migrates the Temporal schemas, then exits |
+| `temporal` | `temporalio/server:1.32.1` | 7233 | Phase 3 |
+| `temporal-init` | `temporalio/admin-tools:1.32.1` | — | waits for the server, registers `default`, then exits |
 | `temporal-ui` | `temporalio/ui:2.55.0` | [8233](http://127.0.0.1:8233) | Phase 3 |
 | `kafka` | `apache/kafka:4.2.2` | 9092 | Phase 4 |
 | `kafka-init` | `apache/kafka:4.2.2` | — | creates topics, then exits |
@@ -36,7 +42,11 @@ All ports bind to `127.0.0.1` only. You can override each host port in `.env` (s
 
 ## Design notes
 
-- **Temporal on Postgres via `auto-setup`.** On first boot, the image creates the `temporal` and `temporal_visibility` databases and registers the `default` namespace. Temporal's own [docker-compose repo](https://github.com/temporalio/docker-compose) still uses this image. It's deprecated for production, which is fine for a local stack.
+- **Temporal 1.32 on Postgres runs as three services.** The `temporalio/server` image ships with no config and no schema setup. (The old all-in-one `auto-setup` image is deprecated and stops at 1.29. Its server lacks APIs the current UI calls, like `ListWorkers`, which made the Workers page fail with 501.)
+  - `temporal-schema` runs `infra/temporal/setup-schema.sh` (`temporal-sql-tool`). It creates `temporal` and `temporal_visibility` and applies any pending migrations. It's safe to re-run, and it upgrades older schemas in place.
+  - `temporal` starts from `infra/temporal/config.yaml`, vendored from `temporalio/temporal` v1.32.1 `config/docker.yaml`. That file is a template filled in from environment variables like `DB` and `POSTGRES_SEEDS`. **Bump it whenever the image tag changes.** Server settings that can change at runtime live in `infra/temporal/dynamicconfig.yaml`.
+  - `temporal-init` runs `infra/temporal/init.sh`. It waits until `cluster health` reports SERVING, then registers the `default` namespace (72h retention) if it's missing.
+  - The server image has no CLI, so its health check only tests that port 7233 is open. The real gRPC health check is in `temporal-init`, and the UI, worker and API wait for it to finish.
 - **App database:** `infra/postgres/init/01-app-db.sh` creates `agentic`. It runs only against an empty volume, so after changing it run `make reset`.
 - **Kafka has two listeners:**
   - `INTERNAL://kafka:29092` for other containers
@@ -45,7 +55,7 @@ All ports bind to `127.0.0.1` only. You can override each host port in `.env` (s
   The external address is advertised as `127.0.0.1` rather than `localhost`. Otherwise clients try `::1` first and log connection errors.
 - **Topics are created explicitly** (`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`), 3 partitions each. A typo in a topic name fails loudly instead of quietly creating a new topic.
 - **Health checks:**
-  - Temporal: `temporal operator cluster health`
+  - Temporal: port check on the server, then `temporal operator cluster health` in `temporal-init`
   - Kafka: `kafka-broker-api-versions.sh`
   - Postgres: `pg_isready`
   - Redis: `redis-cli ping`

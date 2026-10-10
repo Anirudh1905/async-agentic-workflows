@@ -22,35 +22,65 @@ services:
       timeout: 3s
       retries: 20
 
-  # auto-setup creates the temporal + temporal_visibility schemas in Postgres on first boot.
-  temporal:
-    image: temporalio/auto-setup:1.29.7
+  # Temporal server 1.32. The image has no config or schema setup of its own:
+  # temporal-schema creates/migrates the Postgres schemas first, temporal-init
+  # registers the `default` namespace once the server is serving.
+  temporal-schema:
+    image: temporalio/admin-tools:1.32.1
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./infra/temporal/setup-schema.sh:/setup-schema.sh:ro
+    entrypoint: ["sh", "/setup-schema.sh"]
+    restart: "no"
+
+  temporal:
+    image: temporalio/server:1.32.1
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
     environment:
       DB: postgres12
       DB_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PWD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_SEEDS: postgres
-      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/dynamicconfig.yaml
+      TEMPORAL_SERVER_CONFIG_FILE_PATH: /etc/temporal/config/config.yaml
+      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/config/dynamicconfig.yaml
     volumes:
-      - ./infra/temporal:/etc/temporal/config/dynamicconfig:ro
+      - ./infra/temporal:/etc/temporal/config:ro
     ports:
       - "127.0.0.1:${TEMPORAL_PORT:-7233}:7233"
+    # The server image has no CLI; this only checks the frontend port is open.
+    # temporal-init does the real gRPC health check before anything uses Temporal.
     healthcheck:
-      test: ["CMD-SHELL", "temporal operator cluster health --address $$(hostname -i):7233 | grep -q SERVING"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 20s
+      test: ["CMD-SHELL", "nc -z $$(hostname -i) 7233"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
+  temporal-init:
+    image: temporalio/admin-tools:1.32.1
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    volumes:
+      - ./infra/temporal/init.sh:/init.sh:ro
+    entrypoint: ["sh", "/init.sh"]
+    restart: "no"
 
   temporal-ui:
     image: temporalio/ui:2.55.0
     depends_on:
-      temporal:
-        condition: service_healthy
+      temporal-init:
+        condition: service_completed_successfully
     environment:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
