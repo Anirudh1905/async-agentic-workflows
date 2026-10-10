@@ -4,3 +4,6 @@ limit.maxIDLength:
 system.forceSearchAttributesCacheRefreshOnRead:
   - value: true # Dev setup only. Please don't turn this on in production.
     constraints: {}
+# Workers report liveness to the server so the UI's Workers page can show them.
+frontend.workerHeartbeatsEnabled:
+  - value: true
