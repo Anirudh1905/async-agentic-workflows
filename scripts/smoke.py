@@ -22,6 +22,7 @@ TCP = {
 HTTP = {
     "temporal-ui": port("TEMPORAL_UI_PORT", 8233),
     "kafka-ui": port("KAFKA_UI_PORT", 8081),
+    "webhook-tester": port("WEBHOOK_TESTER_PORT", 8082),
 }
 
 
@@ -47,10 +48,10 @@ def main() -> int:
     for name, p, check in checks:
         try:
             check(p)
-            print(f"ok    {name:<12} :{p}")
+            print(f"ok    {name:<15} :{p}")
         except Exception as e:
             failed += 1
-            print(f"FAIL  {name:<12} :{p}  {e}")
+            print(f"FAIL  {name:<15} :{p}  {e}")
     return 1 if failed else 0
 
 

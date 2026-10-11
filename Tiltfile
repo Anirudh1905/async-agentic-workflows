@@ -10,6 +10,7 @@ for svc in ["postgres", "temporal-schema", "temporal", "temporal-init", "kafka",
 
 dc_resource("temporal-ui", labels=["infra"], links=[link("http://127.0.0.1:8233", "Temporal UI")])
 dc_resource("kafka-ui", labels=["infra"], links=[link("http://127.0.0.1:8081", "Kafka UI")])
+dc_resource("webhook-tester", labels=["infra"], links=[link("http://127.0.0.1:8082/s/a9e7c0de-0000-4000-8000-000000000001", "Webhook inbox")])
 
 # App processes on the host. Tilt restarts them when anything under src/ changes,
 # and only starts them once Temporal is serving and the namespace exists.
@@ -30,6 +31,16 @@ local_resource(
     links=[link("http://127.0.0.1:8000/docs", "API docs")],
     labels=["app"],
 )
+
+# RUN_FINISHED consumers, one consumer group each so both see every event.
+for kind in ["persistence", "notifications"]:
+    local_resource(
+        "consumer-" + kind,
+        serve_cmd="uv run consumer " + kind,
+        deps=["src"],
+        resource_deps=["kafka-init", "postgres"],
+        labels=["app"],
+    )
 
 # Testing-only chat UI; click ▶ in the dashboard to start it.
 local_resource(

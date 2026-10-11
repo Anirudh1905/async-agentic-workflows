@@ -153,6 +153,14 @@ services:
       timeout: 3s
       retries: 20
 
+  # Dummy notification service for local dev: a webhook inbox with a web UI.
+  # Any POST to /<uuid> is stored and shown at http://127.0.0.1:8082/s/<uuid>.
+  webhook-tester:
+    image: tarampampam/webhook-tester:2.3.0
+    command: ["start", "--auto-create-sessions"]
+    ports:
+      - "127.0.0.1:${WEBHOOK_TESTER_PORT:-8082}:8080"
+
 volumes:
   postgres_data:
   kafka_data:

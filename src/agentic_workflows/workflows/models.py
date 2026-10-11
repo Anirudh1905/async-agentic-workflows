@@ -19,3 +19,19 @@ class AgentInput:
 class RunResult:
     run_id: str
     answer: str
+
+
+@dataclass
+class RunFinished:
+    """The RUN_FINISHED event. Built in the workflow, published by an activity,
+    parsed by the consumers. Timestamps are ISO-8601 strings to keep the JSON plain."""
+
+    event_id: str  # deterministic (one event per run) so consumers can dedupe
+    run_id: str
+    status: str  # "completed" | "failed"
+    prompt: str
+    answer: str | None
+    error: str | None
+    started_at: str
+    finished_at: str
+    user_id: str | None = None  # filled in by phase 5 (login)

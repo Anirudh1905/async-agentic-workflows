@@ -4,6 +4,8 @@ Run LangGraph agents as durable, asynchronous Temporal workflows. Requests pass 
 
 ![Architecture](docs/architecture.png)
 
+The detailed, interactive diagram of what's built so far is [`docs/architecture/architecture.html`](docs/architecture/architecture.html). Open it locally in a browser. Its spec is `docs/architecture/architecture.json`; re-render it with archify after architecture changes.
+
 ```
 User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka topic ─┬─▶ Notification
         rate limiting       │   LangGraph agent       RUN_FINISHED  └─▶ Postgres record
@@ -18,7 +20,7 @@ User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka to
 | 1 | [Simple LangGraph agent with one tool](docs/phases/phase-1-langgraph-agent.md) | ✅ done |
 | 2 | [Infrastructure in Docker Compose](docs/phases/phase-2-infrastructure.md) | ✅ done |
 | 3 | [Temporal workflow + agent run API](docs/phases/phase-3-temporal.md) (+ Tilt dev loop) | ✅ done |
-| 4 | [Kafka producer and consumers](docs/phases/phase-4-kafka.md) | ⏳ |
+| 4 | [Kafka producer and consumers](docs/phases/phase-4-kafka.md) | ✅ done |
 | 5 | [Login API](docs/phases/phase-5-login-api.md) | ⏳ |
 | 6 | [Redis token-bucket rate limiting](docs/phases/phase-6-rate-limiting.md) | ⏳ |
 
@@ -31,7 +33,7 @@ cp .env.example .env        # fill in OPENAI_API_KEY (and OPENAI_BASE_URL for a 
 uv sync
 ```
 
-**With Tilt** (recommended; `brew install tilt`): one command runs the infra, worker and API, with a dashboard at http://localhost:10350:
+**With Tilt** (recommended; `brew install tilt`): one command runs the infra, worker, API and both consumers, with a dashboard at http://localhost:10350:
 
 ```bash
 tilt up
@@ -40,9 +42,11 @@ tilt up
 **Without Tilt:**
 
 ```bash
-make up && make smoke       # Postgres, Temporal (+UI :8233), Kafka (+UI :8081), Redis
+make up && make smoke       # Postgres, Temporal (+UI :8233), Kafka (+UI :8081), Redis, webhook inbox (:8082)
 uv run worker               # terminal 1
 uv run uvicorn agentic_workflows.api.main:app --port 8000   # terminal 2
+uv run consumer persistence     # terminal 3: RUN_FINISHED → Postgres `runs`
+uv run consumer notifications   # terminal 4: RUN_FINISHED → notification
 ```
 
 Start a run, then poll it:
@@ -56,7 +60,7 @@ Other entry points:
 
 ```bash
 uv run agent "<prompt>"     # agent directly, no Temporal
-uv run pytest               # unit + Temporal time-skipping tests (no LLM; first run downloads the Temporal test server)
+uv run pytest               # unit + Temporal time-skipping tests; Kafka/Postgres tests run when `make up` is up
 ```
 
 For a manual test chat UI (testing only, not part of the product):
@@ -77,6 +81,9 @@ src/agentic_workflows/
     cli.py           `uv run agent "<prompt>"`
   workflows/         Temporal: AgentRunWorkflow, run_agent_activity, worker
   api/               FastAPI run API: POST /runs, GET /runs/{id}
+  events/producer.py RUN_FINISHED producer (Temporal activity)
+  consumers/         persistence + notification consumers, retry/DLQ runner
+  db.py              asyncpg pool + schema (runs, notifications_sent)
 ui/app.py            Streamlit playground for manual testing
 tests/               unit + Temporal time-skipping tests (no LLM calls)
 docs/phases/         one design doc per phase
