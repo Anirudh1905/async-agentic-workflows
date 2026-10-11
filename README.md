@@ -72,11 +72,24 @@ uv sync --group ui
 uv run streamlit run ui/app.py
 ```
 
+## Logging
+
+Every process (API, worker, consumers, CLI) uses the same setup (`agentic_workflows/logs.py`): one line format on stderr, tagged with the service, and `LOG_LEVEL` from `.env` (default `INFO`; `DEBUG` also shows library logs such as httpx and aiokafka).
+
+```
+2026-10-11 20:27:01 INFO  [worker] agentic_workflows.agent.tools: [run_id=447aa14f-… agent.tools attempt=1] web_search query='structured logging' results=5 in 5.7s
+```
+
+- **Follow one run everywhere** with `run_id`. API, workflow, every agent step (with its attempt number), the Kafka publish and both consumers include it. In Tilt, search the logs for the run ID.
+- **Secrets are never logged:** passwords, tokens, API keys, and the email from failed logins. Prompts and answers are logged by size only (`prompt_chars`, `answer_chars`).
+- **Noise is filtered:** chatty libraries are held at WARNING, and the API's access log skips `/healthz` (Tilt's readiness probe).
+
 ## Layout
 
 ```
 src/agentic_workflows/
   config.py          settings loaded from env / .env
+  logs.py            shared logging setup + run-tagged step logger
   agent/
     graph.py         LangGraph StateGraph: model ⇄ tools loop
     tools.py         web_search (DuckDuckGo, no API key), deep_analysis (slow 5-7 min test tool)

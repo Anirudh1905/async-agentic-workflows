@@ -1,4 +1,8 @@
+import logging
+
 import asyncpg
+
+log = logging.getLogger(__name__)
 
 # Applied on API and consumer startup. Idempotent and additive only; switch to a
 # migration tool the first time an existing table needs altering.
@@ -37,4 +41,5 @@ async def connect(database_url: str) -> asyncpg.Pool:
         # Both consumers start together; concurrent CREATE TABLE IF NOT EXISTS can still collide.
         await conn.execute("SELECT pg_advisory_xact_lock(hashtext('agentic_workflows.schema'))")
         await conn.execute(SCHEMA)
+    log.info("postgres ready, schema ensured")
     return pool

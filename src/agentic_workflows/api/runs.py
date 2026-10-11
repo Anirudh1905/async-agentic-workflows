@@ -1,6 +1,7 @@
 """Run endpoints: start AgentRunWorkflow and report its status. Never waits for the agent.
 All routes require a logged-in user, who only ever sees their own runs."""
 
+import logging
 import uuid
 from datetime import timedelta
 from typing import Annotated
@@ -18,6 +19,7 @@ from agentic_workflows.workflows.agent_run import AgentRunWorkflow
 from agentic_workflows.workflows.models import RunInput
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+log = logging.getLogger(__name__)
 
 TemporalClient = Annotated[Client, Depends(get_temporal_client)]
 TaskQueue = Annotated[str, Depends(get_task_queue)]
@@ -37,6 +39,7 @@ async def create_run(body: CreateRun, user: CurrentUser, client: TemporalClient,
         # The owner travels with the execution, so GET /runs/{id} can check it from describe().
         memo={"user_id": user.id},
     )
+    log.info("run started run_id=%s user_id=%s prompt_chars=%d", run_id, user.id, len(body.prompt))
     return RunCreated(run_id=run_id)
 
 
@@ -65,6 +68,7 @@ async def get_run(run_id: str, user: CurrentUser, client: TemporalClient):
         raise
     # Someone else's run looks exactly like a missing one, so run ids can't be probed.
     if (await desc.memo_value("user_id", default=None)) != user.id:
+        log.info("run hidden from non-owner run_id=%s user_id=%s", run_id, user.id)
         raise _not_found
 
     out = RunStatus(run_id=run_id, status=desc.status.name.lower())
@@ -73,7 +77,8 @@ async def get_run(run_id: str, user: CurrentUser, client: TemporalClient):
         # still safe in Temporal, we just can't report the finer-grained step.
         try:
             out.step = await handle.query(AgentRunWorkflow.status, rpc_timeout=timedelta(seconds=2))
-        except RPCError:
+        except RPCError as e:
+            log.debug("status query unavailable run_id=%s: %s", run_id, e)
             out.step = None
     elif desc.status == WorkflowExecutionStatus.COMPLETED:
         out.answer = (await handle.result()).answer

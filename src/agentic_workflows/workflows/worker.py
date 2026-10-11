@@ -8,8 +8,12 @@ from temporalio.worker import Worker
 
 from agentic_workflows.agent.graph import AGENT_GRAPH, build_state_graph
 from agentic_workflows.config import get_settings
+from agentic_workflows.logs import setup_logging
 from agentic_workflows.events.producer import EventActivities, make_producer
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
+
+
+log = logging.getLogger(__name__)
 
 
 async def run_worker() -> None:
@@ -28,14 +32,15 @@ async def run_worker() -> None:
             # Registers each graph node ("agent.model", "agent.tools") as an activity.
             plugins=[LangGraphPlugin(graphs={AGENT_GRAPH: build_state_graph()})],
         )
-        logging.info("worker polling task queue %r on %s", s.temporal_task_queue, s.temporal_address)
+        log.info("worker polling task_queue=%s temporal=%s kafka=%s", s.temporal_task_queue, s.temporal_address, s.kafka_bootstrap_servers)
         await worker.run()
     finally:
         await producer.stop()
+        log.info("worker stopped")
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    setup_logging("worker")
     asyncio.run(run_worker())
 
 

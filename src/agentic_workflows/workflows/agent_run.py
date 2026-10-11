@@ -28,6 +28,8 @@ class AgentRunWorkflow:
     @workflow.run
     async def run(self, input: RunInput) -> RunResult:
         started_at = workflow.now().isoformat()
+        # workflow.logger is replay-safe (silent while replaying) and tags lines with the run.
+        workflow.logger.info("agent run started run_id=%s user_id=%s max_steps=%d", input.run_id, input.user_id, input.max_steps)
         self._status = "running_agent"
         try:
             result = await graph(AGENT_GRAPH).compile().ainvoke(
@@ -42,10 +44,12 @@ class AgentRunWorkflow:
                 error = str(e.cause or e)
             else:
                 error = f"agent exceeded {input.max_steps} steps"
+            workflow.logger.warning("agent run failed run_id=%s: %s", input.run_id, error)
             await self._publish(input, started_at, status="failed", answer=None, error=error)
             self._status = "failed"
             raise ApplicationError(f"agent failed: {error}", non_retryable=True) from e
 
+        workflow.logger.info("agent run completed run_id=%s steps=%d answer_chars=%d", input.run_id, len(result["messages"]) - 1, len(answer))
         await self._publish(input, started_at, status="completed", answer=answer, error=None)
         self._status = "completed"
         return RunResult(run_id=input.run_id, answer=answer)

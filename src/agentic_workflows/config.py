@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    log_level: str = "INFO"  # DEBUG also turns on library logs (httpx, aiokafka, ...)
+
     # Optional so processes that never call the LLM (the API) start without it;
     # the worker fails on the first LLM call if it's missing.
     openai_api_key: str | None = None
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     # Signs login tokens. Only the API needs it, so it's optional here and the API
     # refuses to start without it. Generate one with: openssl rand -hex 32
     jwt_secret: str | None = None
-    jwt_ttl_minutes: int = 30
+    jwt_ttl_minutes: int = 60
 
 
 @lru_cache

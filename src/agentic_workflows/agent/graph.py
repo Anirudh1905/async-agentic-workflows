@@ -10,6 +10,8 @@ import path, and they read the LLM from `get_llm()` rather than a closure for th
 same reason.
 """
 
+import logging
+import time
 from datetime import timedelta
 
 from langchain_core.language_models import BaseChatModel
@@ -19,6 +21,7 @@ from langgraph.prebuilt import ToolNode
 from temporalio.common import RetryPolicy
 
 from agentic_workflows.agent.tools import TOOLS
+from agentic_workflows.logs import step_logger
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. Use the web_search tool to look things up, "
@@ -32,6 +35,7 @@ SYSTEM_PROMPT = (
 AGENT_GRAPH = "agent"
 
 _llm: BaseChatModel | None = None
+_log = logging.getLogger(__name__)
 _tool_node = ToolNode(TOOLS)
 
 
@@ -71,11 +75,21 @@ def get_llm() -> BaseChatModel:
 async def call_model(state: MessagesState):
     model = get_llm().bind_tools(TOOLS)
     messages = [SystemMessage(SYSTEM_PROMPT), *convert_to_messages(state["messages"])]
-    return {"messages": [await model.ainvoke(messages)]}
+    started = time.monotonic()
+    reply = await model.ainvoke(messages)
+    took = time.monotonic() - started
+    if reply.tool_calls:
+        step_logger(_log).info("llm wants tools=%s messages=%d in %.1fs", [c["name"] for c in reply.tool_calls], len(messages), took)
+    else:
+        step_logger(_log).info("llm answered answer_chars=%d messages=%d in %.1fs", len(reply.content), len(messages), took)
+    return {"messages": [reply]}
 
 
 async def call_tools(state: MessagesState):
-    return await _tool_node.ainvoke({"messages": convert_to_messages(state["messages"])})
+    started = time.monotonic()
+    out = await _tool_node.ainvoke({"messages": convert_to_messages(state["messages"])})
+    step_logger(_log).info("tools done count=%d in %.1fs", len(out["messages"]), time.monotonic() - started)
+    return out
 
 
 async def route(state: MessagesState):
