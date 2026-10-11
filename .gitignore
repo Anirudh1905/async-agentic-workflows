@@ -13,3 +13,6 @@ wheels/
 # Local secrets
 .env
 .pytest_cache/
+
+# archify scratch output; the kept diagram lives in docs/architecture/
+.archify/

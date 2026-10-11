@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Async Agentic Workflows — Phase 4",
+    "output": "docs/architecture/architecture.html",
+    "quality_profile": "showcase",
+    "locale": "en"
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Client",
+      "sublabel": "curl / Tilt button",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Run API",
+      "sublabel": "FastAPI :8000",
+      "tag": "202, never waits",
+      "pos": [
+        260,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "temporal_ui",
+      "type": "frontend",
+      "label": "Temporal UI",
+      "sublabel": "web :8233",
+      "pos": [
+        380,
+        100
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "temporal",
+      "type": "cloud",
+      "label": "Temporal Server",
+      "sublabel": "1.32 · gRPC :7233",
+      "tag": "namespace default",
+      "pos": [
+        600,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "pg_temporal",
+      "type": "database",
+      "label": "Postgres · Temporal dbs",
+      "sublabel": "temporal, temporal_visibility",
+      "pos": [
+        600,
+        100
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Temporal Worker",
+      "sublabel": "AgentRunWorkflow",
+      "tag": "agent: 3 attempts · 5 min",
+      "pos": [
+        880,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "LangGraph Agent",
+      "sublabel": "model ⇄ tools loop",
+      "tag": "≤ 10 steps",
+      "pos": [
+        1200,
+        260
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "OpenAI-compatible LLM",
+      "sublabel": "gpt-4o-mini default",
+      "pos": [
+        1200,
+        100
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "ddg",
+      "type": "external",
+      "label": "DuckDuckGo",
+      "sublabel": "top 5 results",
+      "pos": [
+        1460,
+        260
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "unused until phase 6",
+      "tag": "AOF :6380",
+      "pos": [
+        300,
+        470
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "kafka",
+      "type": "messagebus",
+      "label": "Kafka · RUN_FINISHED",
+      "sublabel": "3 partitions :9092",
+      "tag": "key = run_id",
+      "pos": [
+        880,
+        470
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "cons_persist",
+      "type": "backend",
+      "label": "consumer persistence",
+      "sublabel": "group persistence",
+      "pos": [
+        560,
+        680
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "dlq",
+      "type": "messagebus",
+      "label": "RUN_FINISHED.DLQ",
+      "sublabel": "error · consumer · source",
+      "pos": [
+        880,
+        680
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "cons_notify",
+      "type": "backend",
+      "label": "consumer notifications",
+      "sublabel": "group notifications",
+      "pos": [
+        1200,
+        680
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "webhook",
+      "type": "external",
+      "label": "Webhook",
+      "sublabel": "NOTIFY_WEBHOOK_URL",
+      "pos": [
+        1520,
+        680
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "pg_app",
+      "type": "database",
+      "label": "Postgres · agentic db",
+      "sublabel": "runs, notifications_sent",
+      "pos": [
+        880,
+        880
+      ],
+      "size": [
+        150,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "client-api",
+      "from": "client",
+      "to": "api",
+      "label": "HTTP /runs",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-temporal",
+      "from": "api",
+      "to": "temporal",
+      "label": "start · status · result",
+      "variant": "emphasis"
+    },
+    {
+      "id": "temporal-worker",
+      "from": "temporal",
+      "to": "worker",
+      "label": "agent-runs queue",
+      "variant": "emphasis"
+    },
+    {
+      "id": "worker-agent",
+      "from": "worker",
+      "to": "agent",
+      "label": "run_agent_activity",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-llm",
+      "from": "agent",
+      "to": "llm",
+      "label": "chat + tool calls"
+    },
+    {
+      "id": "agent-ddg",
+      "from": "agent",
+      "to": "ddg",
+      "label": "web_search"
+    },
+    {
+      "id": "temporal-pg",
+      "from": "temporal",
+      "to": "pg_temporal",
+      "label": "history"
+    },
+    {
+      "id": "ui-temporal",
+      "from": "temporal_ui",
+      "to": "temporal",
+      "label": "inspect runs",
+      "variant": "dashed"
+    },
+    {
+      "id": "worker-kafka",
+      "from": "worker",
+      "to": "kafka",
+      "label": "publish_run_finished",
+      "variant": "emphasis"
+    },
+    {
+      "id": "kafka-persist",
+      "from": "kafka",
+      "to": "cons_persist",
+      "label": "consume"
+    },
+    {
+      "id": "kafka-notify",
+      "from": "kafka",
+      "to": "cons_notify",
+      "label": "consume"
+    },
+    {
+      "id": "persist-dlq",
+      "from": "cons_persist",
+      "to": "dlq",
+      "label": "3 fails or bad payload",
+      "variant": "dashed"
+    },
+    {
+      "id": "notify-dlq",
+      "from": "cons_notify",
+      "to": "dlq",
+      "label": "3 fails or bad payload",
+      "variant": "dashed"
+    },
+    {
+      "id": "persist-pg",
+      "from": "cons_persist",
+      "to": "pg_app",
+      "label": "UPSERT runs"
+    },
+    {
+      "id": "notify-pg",
+      "from": "cons_notify",
+      "to": "pg_app",
+      "label": "claim event_id"
+    },
+    {
+      "id": "notify-webhook",
+      "from": "cons_notify",
+      "to": "webhook",
+      "label": "POST if set",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Run lifecycle",
+      "items": [
+        "POST /runs starts AgentRunWorkflow (workflow id = run_id) and returns 202",
+        "Status query: queued → running_agent → publishing → completed / failed",
+        "Failed runs still publish RUN_FINISHED with status failed, then the workflow fails"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Delivery guarantees",
+      "items": [
+        "Producer: acks=all, idempotent; publish retries until Kafka accepts",
+        "Consumers commit only after success or DLQ: at-least-once, replay-safe",
+        "Persistence upserts on run_id; notifications claim event_id before sending"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Runtime and what's next",
+      "items": [
+        "Docker Compose: Temporal, Postgres (one instance, two logical stores), Kafka, Redis",
+        "Host via Tilt: API, worker, both consumers; CLI and Streamlit call the agent directly",
+        "Phase 5: login API fills user_id · Phase 6: Redis token-bucket rate limiting"
+      ]
+    }
+  ]
+}

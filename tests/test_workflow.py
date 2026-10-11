@@ -1,5 +1,5 @@
 """AgentRunWorkflow and the run API against Temporal's time-skipping test server.
-The real activity is swapped for a fake with the same name, so no LLM or network."""
+The real activities are swapped for fakes with the same names, so no LLM, Kafka or network."""
 
 import asyncio
 import uuid
@@ -15,7 +15,7 @@ from temporalio.worker import Worker
 from agentic_workflows.api.deps import get_task_queue, get_temporal_client
 from agentic_workflows.api.main import app
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
-from agentic_workflows.workflows.models import AgentInput, RunInput
+from agentic_workflows.workflows.models import AgentInput, RunFinished, RunInput
 
 TASK_QUEUE = "test-agent-runs"
 
@@ -42,13 +42,22 @@ def fake_activity(behaviour):
     return run_agent_activity
 
 
-async def run_with(behaviour, coro_fn):
+def fake_publisher(published: list[RunFinished]):
+    @activity.defn(name="publish_run_finished")
+    async def publish_run_finished(event: RunFinished) -> None:
+        published.append(event)
+
+    return publish_run_finished
+
+
+async def run_with(behaviour, coro_fn, published: list[RunFinished] | None = None):
+    published = published if published is not None else []
     async with await WorkflowEnvironment.start_time_skipping() as env:
         async with Worker(
             env.client,
             task_queue=TASK_QUEUE,
             workflows=[AgentRunWorkflow],
-            activities=[fake_activity(behaviour)],
+            activities=[fake_activity(behaviour), fake_publisher(published)],
         ):
             return await coro_fn(env)
 
@@ -62,9 +71,15 @@ def test_workflow_returns_agent_answer():
             AgentRunWorkflow.run, RunInput(run_id="r1", prompt="hi"), id="r1", task_queue=TASK_QUEUE
         )
 
-    result = asyncio.run(run_with(echo, go))
+    published = []
+    result = asyncio.run(run_with(echo, go, published))
     assert result.run_id == "r1"
     assert result.answer == "answer to: hi"
+
+    [event] = published
+    assert (event.event_id, event.run_id, event.status) == ("r1:RUN_FINISHED", "r1", "completed")
+    assert (event.prompt, event.answer, event.error) == ("hi", "answer to: hi", None)
+    assert event.started_at <= event.finished_at
 
 
 def test_workflow_retries_failed_activity():
@@ -95,7 +110,13 @@ def test_workflow_fails_after_max_attempts():
                 AgentRunWorkflow.run, RunInput(run_id="r3", prompt="x"), id="r3", task_queue=TASK_QUEUE
             )
 
-    asyncio.run(run_with(broken, go))
+    published = []
+    asyncio.run(run_with(broken, go, published))
+
+    # A failed run still emits RUN_FINISHED so downstream records it.
+    [event] = published
+    assert (event.status, event.answer) == ("failed", None)
+    assert "always down" in event.error
 
 
 def test_api_starts_run_and_reports_result():
@@ -135,3 +156,32 @@ def test_api_reports_running_when_no_worker_is_polling():
                 assert r.json()["step"] is None
 
     asyncio.run(go())
+
+
+def test_publish_is_retried_until_kafka_accepts():
+    published, calls = [], []
+
+    @activity.defn(name="publish_run_finished")
+    async def flaky_publish(event: RunFinished) -> None:
+        calls.append(1)
+        if len(calls) < 4:
+            raise RuntimeError("kafka unavailable")
+        published.append(event)
+
+    async def echo(input):
+        return "ok"
+
+    async def go():
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue=TASK_QUEUE,
+                workflows=[AgentRunWorkflow],
+                activities=[fake_activity(echo), flaky_publish],
+            ):
+                return await env.client.execute_workflow(
+                    AgentRunWorkflow.run, RunInput(run_id="r9", prompt="x"), id="r9", task_queue=TASK_QUEUE
+                )
+
+    assert asyncio.run(go()).answer == "ok"
+    assert len(calls) == 4 and len(published) == 1

@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
     temporal_task_queue: str = "agent-runs"
 
+    kafka_bootstrap_servers: str = "127.0.0.1:9092"
+    run_finished_topic: str = "RUN_FINISHED"
+    run_finished_dlq_topic: str = "RUN_FINISHED.DLQ"
+
+    database_url: str = "postgresql://postgres:postgres@127.0.0.1:5433/agentic"
+    # If set, the notification consumer POSTs each RUN_FINISHED event here; otherwise it only logs.
+    notify_webhook_url: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

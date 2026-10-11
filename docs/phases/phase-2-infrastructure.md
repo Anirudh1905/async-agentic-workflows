@@ -37,6 +37,7 @@ flowchart TB
 | `kafka-init` | `apache/kafka:4.2.2` | — | creates topics, then exits |
 | `kafka-ui` | `kafbat/kafka-ui:v1.5.0` | [8081](http://127.0.0.1:8081) | Phase 4 |
 | `redis` | `redis:8.8-alpine` | 6380 | Phase 6 |
+| `webhook-tester` | `tarampampam/webhook-tester:2.3.0` | [8082](http://127.0.0.1:8082) | Phase 4: dummy notification receiver (added in Phase 4) |
 
 All ports bind to `127.0.0.1` only. You can override each host port in `.env` (see `.env.example`). The defaults avoid ports that are often already taken locally (5432, 6379, 8080).
 

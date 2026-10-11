@@ -48,7 +48,7 @@ Tiltfile            dev loop (below)
   - **No activity heartbeats, on purpose.** If a worker dies mid-run, Temporal only notices once the 5-minute `start_to_close_timeout` runs out, and then retries on another worker. If faster crash detection matters later, add `heartbeat_timeout` plus `activity.heartbeat()` calls.
   - **Worker heartbeats are a different thing:** the worker tells the server it's alive, for the UI's Workers page. They're turned on with `frontend.workerHeartbeatsEnabled` in `infra/temporal/dynamicconfig.yaml`. They need server 1.30 or later for `ListWorkers`, which is why Phase 3 moved the stack to Temporal 1.32 (see the Phase 2 doc).
   - `RetryPolicy(initial_interval=2s, backoff=2.0, maximum_attempts=3)`. After the third failure the workflow fails, and `GET /runs/{id}` returns `status: failed` with the error.
-- **Progress:** the `status` query reports finer-grained progress (`queued` → `running_agent` → `completed`). Phase 4 adds a publishing step.
+- **Progress:** the `status` query reports finer-grained progress (`queued` → `running_agent` → `publishing` → `completed` or `failed`). The `publishing` step was added in Phase 4.
 - **What survives a crash:** workflow state does. The current activity attempt doesn't: when a worker dies mid-run, the agent restarts from scratch on the next attempt. That's fine for now. Making single agent steps resumable (for example, a LangGraph checkpointer per run) is a later optimization.
 
 ### API
