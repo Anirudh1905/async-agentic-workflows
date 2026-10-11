@@ -3,10 +3,12 @@
 Run: uv run streamlit run ui/app.py
 """
 
+import asyncio
+
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from agentic_workflows.agent.graph import build_graph, default_llm
+from agentic_workflows.agent.graph import build_graph, default_llm, recursion_limit
 from agentic_workflows.config import get_settings
 
 st.set_page_config(page_title="Agent playground", page_icon="🔎")
@@ -16,6 +18,14 @@ st.title("Agent playground")
 @st.cache_resource
 def get_graph():
     return build_graph(default_llm())
+
+
+@st.cache_resource
+def event_loop():
+    # One loop for the whole session: the cached OpenAI client keeps HTTP connections
+    # bound to the loop it first ran on, so a fresh asyncio.run() per turn would break
+    # the second turn with "Event loop is closed".
+    return asyncio.new_event_loop()
 
 
 if "messages" not in st.session_state:
@@ -50,15 +60,19 @@ if prompt := st.chat_input("Ask something that needs a web search..."):
     st.session_state.messages.append(user_msg)
     render(user_msg)
 
-    max_steps = get_settings().agent_max_steps
-    with st.spinner("Thinking..."):
-        # stream_mode="updates" yields each node's new messages as it finishes, so tool calls show up live.
-        for update in get_graph().stream(
+    # The graph's nodes are async (Temporal's LangGraph plugin needs that), so drive it
+    # with astream. stream_mode="updates" yields each node's new messages as it finishes,
+    # so tool calls show up live.
+    async def run_turn():
+        async for update in get_graph().astream(
             {"messages": st.session_state.messages},
-            config={"recursion_limit": max_steps * 2 + 1},
+            config={"recursion_limit": recursion_limit(get_settings().agent_max_steps)},
             stream_mode="updates",
         ):
             for node_output in update.values():
                 for msg in node_output["messages"]:
                     st.session_state.messages.append(msg)
                     render(msg)
+
+    with st.spinner("Thinking..."):
+        event_loop().run_until_complete(run_turn())

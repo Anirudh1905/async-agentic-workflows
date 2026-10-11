@@ -81,7 +81,7 @@ src/agentic_workflows/
     graph.py         LangGraph StateGraph: model ⇄ tools loop
     tools.py         web_search (DuckDuckGo, no API key), deep_analysis (slow 5-7 min test tool)
     cli.py           `uv run agent "<prompt>"`
-  workflows/         Temporal: AgentRunWorkflow, run_agent_activity, worker
+  workflows/         Temporal: AgentRunWorkflow (one activity per agent step), worker
   api/               FastAPI: /auth (register, login → JWT) + /runs (per-user)
   events/producer.py RUN_FINISHED producer (Temporal activity)
   consumers/         persistence + notification consumers, retry/DLQ runner

@@ -100,7 +100,7 @@
       "type": "backend",
       "label": "Temporal Worker",
       "sublabel": "AgentRunWorkflow",
-      "tag": "agent: 3 attempts · 5 min",
+      "tag": "1 activity per LLM / tool call",
       "pos": [
         880,
         260
@@ -114,8 +114,8 @@
       "id": "agent",
       "type": "backend",
       "label": "LangGraph Agent",
-      "sublabel": "model ⇄ tools loop",
-      "tag": "≤ 10 steps · in worker",
+      "sublabel": "graph runs in the workflow",
+      "tag": "≤ 10 steps · retried per step",
       "pos": [
         1200,
         260
@@ -287,7 +287,7 @@
       "id": "worker-agent",
       "from": "worker",
       "to": "agent",
-      "label": "run_agent_activity",
+      "label": "agent.model · agent.tools",
       "variant": "emphasis"
     },
     {
@@ -424,7 +424,7 @@
       "title": "Run lifecycle",
       "items": [
         "POST /runs needs a Bearer JWT; starts AgentRunWorkflow with user_id in input + memo, returns 202",
-        "Status query: queued → running_agent → publishing → completed / failed",
+        "Each LLM call (agent.model) and tool call (agent.tools) is its own activity, recorded in history",
         "GET /runs/{id} is 404 unless the memo user_id is the caller; GET /runs lists your rows from Postgres"
       ]
     },

@@ -13,6 +13,7 @@ from temporalio.service import RPCError, RPCStatusCode
 from agentic_workflows.api.auth import CurrentUser
 from agentic_workflows.api.deps import get_db, get_task_queue, get_temporal_client
 from agentic_workflows.api.schemas import CreateRun, RunCreated, RunStatus, RunSummary
+from agentic_workflows.config import get_settings
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
 from agentic_workflows.workflows.models import RunInput
 
@@ -30,7 +31,7 @@ async def create_run(body: CreateRun, user: CurrentUser, client: TemporalClient,
     run_id = str(uuid.uuid4())
     await client.start_workflow(
         AgentRunWorkflow.run,
-        RunInput(run_id=run_id, prompt=body.prompt, user_id=user.id),
+        RunInput(run_id=run_id, prompt=body.prompt, user_id=user.id, max_steps=get_settings().agent_max_steps),
         id=run_id,
         task_queue=task_queue,
         # The owner travels with the execution, so GET /runs/{id} can check it from describe().

@@ -9,11 +9,7 @@ class RunInput:
     run_id: str
     prompt: str
     user_id: str | None = None  # who started the run; defaulted so pre-phase-5 histories still decode
-
-
-@dataclass
-class AgentInput:
-    prompt: str
+    max_steps: int = 10  # agent step cap; part of the input so replays always see the same value
 
 
 @dataclass
