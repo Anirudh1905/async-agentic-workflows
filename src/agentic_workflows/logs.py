@@ -2,7 +2,7 @@
 
 Each entry point calls `setup_logging("<service>")` once. Lines look like
 
-    2026-10-11 19:51:18 INFO  [worker] agentic_workflows.agent.tools: web_search done query='kafka' results=5 in 1.2s
+    2026-10-11 19:51:18 INFO  [worker] agentic_workflows.agent.tools: [run_id=… agent.tools attempt=1] web_search query='kafka' results=5 in 1.2s
 
 Modules log with `logging.getLogger(__name__)`. Key facts go in the message as
 key=value pairs (run_id=..., user_id=...) so they're easy to grep in Tilt.

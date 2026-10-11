@@ -1,5 +1,6 @@
-"""Payloads that cross the Temporal boundary. Plain dataclasses so the default
-JSON data converter handles them and they stay importable inside the workflow sandbox."""
+"""Payloads that cross the Temporal boundary. Plain dataclasses: the worker and API
+use pydantic_data_converter, which handles them, and they stay importable inside the
+workflow sandbox."""
 
 from dataclasses import dataclass
 

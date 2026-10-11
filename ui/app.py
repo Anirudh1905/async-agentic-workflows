@@ -1,6 +1,6 @@
 """Throwaway Streamlit chat for poking at the agent by hand. Not part of the product.
 
-Run: uv run streamlit run ui/app.py
+Run: uv run --group ui streamlit run ui/app.py
 """
 
 import asyncio

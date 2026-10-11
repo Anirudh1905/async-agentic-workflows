@@ -23,6 +23,7 @@ HTTP = {
     "temporal-ui": port("TEMPORAL_UI_PORT", 8233),
     "kafka-ui": port("KAFKA_UI_PORT", 8081),
     "webhook-tester": port("WEBHOOK_TESTER_PORT", 8082),
+    "pgweb": port("PGWEB_PORT", 8083),
 }
 
 

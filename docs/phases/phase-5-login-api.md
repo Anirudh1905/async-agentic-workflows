@@ -15,7 +15,7 @@ sequenceDiagram
     AUTH-->>U: 201 {id, email} · 409 if taken
     U->>AUTH: POST /auth/login (form: username, password)
     AUTH->>DB: fetch hash, verify (dummy hash if no such user)
-    AUTH-->>U: 200 {access_token: JWT(sub=user_id, exp=30m)}
+    AUTH-->>U: 200 {access_token: JWT(sub=user_id, exp=60m)}
     U->>RUNS: POST /runs, Authorization: Bearer JWT
     RUNS->>RUNS: get_current_user: verify signature + exp, user still exists
     alt valid
@@ -33,8 +33,8 @@ sequenceDiagram
 
 ```
 src/agentic_workflows/api/
-  auth.py      /auth/register, /auth/login, /auth/me; get_current_user (CurrentUser)
-  runs.py      every route takes CurrentUser; GET /runs lists your finished runs
+  routes/auth.py  /auth/register, /auth/login, /auth/me; get_current_user (CurrentUser)
+  routes/runs.py  every route takes CurrentUser; GET /runs lists your finished runs
   schemas.py   + RegisterUser, User, Token, RunSummary
   deps.py      + get_db (asyncpg pool created in lifespan)
 db.py          + users table, runs(user_id, finished_at) index
@@ -52,7 +52,7 @@ scripts/send_test_run.py   log in as a dev user and start a run (Tilt button)
 | `GET` | `/runs?limit=20` | Bearer | your finished runs from Postgres, newest first |
 | `GET` | `/runs/{run_id}` | Bearer | status, step, answer, error. `404` if it's not yours. |
 
-Any `/runs` route or `/auth/me` without a valid token returns `401` with `WWW-Authenticate: Bearer`.
+Any `/runs` route or `/auth/me` without a valid token returns `401` with `WWW-Authenticate: Bearer`. Since Phase 6, `/auth/register`, `/auth/login` and every `/runs` route can also return `429` (rate limits), and `POST /runs` can return `429` when you're at the active-run cap. See the [Phase 6 doc](phase-6-rate-limiting.md).
 
 ### Design decisions
 
@@ -62,7 +62,7 @@ Any `/runs` route or `/auth/me` without a valid token returns `401` with `WWW-Au
   - **Email:** lowercased on register and login, so `Alice@x.com` and `alice@x.com` are the same account.
   - **Same 401 for every login failure:** a wrong password and an unknown email return the same 401 body. An unknown email is still checked against a dummy hash, so it takes about as long as a real check, and response time doesn't reveal which emails are registered.
 - **Tokens:**
-  - **Format:** HS256 JWTs with claims `sub` (user id), `iat` and `exp` (`JWT_TTL_MINUTES`, default 30). Decoding requires both `sub` and `exp`.
+  - **Format:** HS256 JWTs with claims `sub` (user id), `iat` and `exp` (`JWT_TTL_MINUTES`, default 60). Decoding requires both `sub` and `exp`.
   - **Every request re-checks the user exists,** so a deleted user's still-valid token stops working right away.
   - **The secret:** `JWT_SECRET` must be at least 32 characters (RFC 7518 §3.2). The API refuses to start otherwise. Only the API needs it; the worker and consumers don't.
   - **No refresh tokens or revocation list yet.** Log in again when the token expires.
@@ -94,7 +94,7 @@ There are two shortcuts:
 
 ## Done when
 
-- [x] `/runs` returns 401 without a valid token. Tests cover a missing, garbage, expired, forged (wrong secret) and deleted-user token.
+- [x] `/runs` returns 401 without a valid token. Tests cover a missing, garbage, expired and forged (wrong secret) token on every `/runs` route, and a deleted user's token on `/auth/me`.
 - [x] A run row in Postgres is tied to the user who started it. Verified live: the `runs.user_id` and the webhook body's `user_id` both match the logged-in user.
 - [x] Users only see their own runs:
   - `GET /runs/{id}` returns 404 to another user. That's tested, and was verified live.

@@ -6,7 +6,7 @@
 flowchart LR
     subgraph worker["Temporal worker"]
         WF[AgentRunWorkflow] --> ACT1["agent.model / agent.tools<br/>(one activity per step)"]
-        ACT1 -- "answer / out of retries" --> ACT2["publish_run_finished<br/>(retries until Kafka accepts)"]
+        ACT1 -- "answer / out of retries / step cap" --> ACT2["publish_run_finished<br/>(retries until Kafka accepts)"]
     end
     ACT2 -- "key = run_id<br/>acks=all, idempotent" --> TOPIC[("RUN_FINISHED<br/>3 partitions")]
     TOPIC --> P["consumer persistence<br/>group: persistence"]
@@ -25,7 +25,7 @@ src/agentic_workflows/
   consumers/
     runner.py             consume loop: parse → handle with retries → DLQ → commit
     handlers.py           persistence_handler, notification_handler
-    main.py               `uv run consumer persistence|notifications`
+    main.py               `uv run consumer persistence` or `uv run consumer notifications`
   db.py                   asyncpg pool + idempotent schema (runs, notifications_sent)
   workflows/models.py     + RunFinished event
 ```
@@ -45,7 +45,7 @@ JSON in the value, `run_id` as the key, no headers. The topic already says what 
 
 ### Producer: inside the workflow
 
-- **Every run publishes, including failed ones.** After the agent activity, the workflow calls `publish_run_finished`. If the agent runs out of retries, the workflow first publishes a `failed` event, then fails. Downstream hears about every run either way.
+- **Every run publishes, including failed ones.** After the agent's last step, the workflow calls `publish_run_finished`. If a step runs out of retries, or the agent exceeds `max_steps` (`agent exceeded N steps`), the workflow first publishes a `failed` event, then fails. Downstream hears about every run either way.
 - **No retry limit on publishing** (`maximum_interval=30s`). If Kafka is down, the run waits in the `publishing` step, shown by the status query, rather than finishing without telling anyone downstream.
 - **One producer per worker.** It's created when the worker starts and shared through a class-based activity (`EventActivities`), with `acks=all` and `enable_idempotence=True`.
 - **Keyed by `run_id`**, so all events for a run land on the same partition, in order.
@@ -57,7 +57,7 @@ JSON in the value, `run_id` as the key, no headers. The topic already says what 
   - **Persistence:** `INSERT ... ON CONFLICT (run_id) DO UPDATE`. A replay rewrites the same row.
   - **Notifications:** claim `event_id` in `notifications_sent` (`ON CONFLICT DO NOTHING RETURNING`), then send. If the claim already exists, skip. If sending fails, release the claim so the retry or a replay can send it. Sending is a log line, plus a POST of the event JSON to `NOTIFY_WEBHOOK_URL` if that's set.
 - **Retries and DLQ.** Each message gets 3 attempts with backoff (1s, 2s). Then it goes to `RUN_FINISHED.DLQ` with headers `error`, `consumer` and `source` (`topic[partition]@offset`), and the offset is committed so one bad message can't block a partition. Unparseable payloads skip the retries and go straight to the DLQ.
-- **Schema:** each consumer runs `CREATE TABLE IF NOT EXISTS` on startup, under a Postgres advisory lock because both consumers start at the same moment. Phase 5 adds users, which is a good point to switch to a migration tool.
+- **Schema:** each consumer runs `CREATE TABLE IF NOT EXISTS` on startup, under a Postgres advisory lock because both consumers start at the same moment. Phase 5 added `users` the same way. Switch to a migration tool the first time an existing table needs altering.
 
 ## Kafka settings
 
@@ -207,6 +207,7 @@ uv run consumer notifications
 Inspect the results:
 
 ```bash
+open http://127.0.0.1:8083    # Postgres UI (pgweb): browse runs and notifications_sent, or run SQL
 docker compose exec postgres psql -U postgres -d agentic -c "select run_id, status, left(answer, 60) from runs"
 open http://127.0.0.1:8081    # Kafka UI: RUN_FINISHED, RUN_FINISHED.DLQ, consumer group lag
 ```
