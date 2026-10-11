@@ -35,7 +35,7 @@ async def process(raw: bytes, handler: Handler, *, backoff_seconds: float = 1.0)
             await handler(event)
             return None
         except Exception as e:
-            log.warning("run %s: attempt %d/%d failed: %s", event.run_id, attempt, MAX_ATTEMPTS, e)
+            log.warning("handler failed run_id=%s attempt=%d/%d: %s", event.run_id, attempt, MAX_ATTEMPTS, e)
             if attempt == MAX_ATTEMPTS:
                 return f"{type(e).__name__}: {e}"
             await asyncio.sleep(backoff_seconds * 2 ** (attempt - 1))
@@ -54,12 +54,12 @@ async def run_consumer(
     dlq = AIOKafkaProducer(bootstrap_servers=bootstrap_servers, acks="all")
     await consumer.start()
     await dlq.start()
-    log.info("%s consuming %r as group %r", name, topic, group_id)
+    log.info("%s consuming topic=%s group=%s", name, topic, group_id)
     try:
         async for msg in consumer:
             error = await process(msg.value, handler)
             if error:
-                log.error("%s: parking %s[%d]@%d in %s: %s", name, msg.topic, msg.partition, msg.offset, dlq_topic, error)
+                log.error("%s parked message in %s source=%s[%d]@%d: %s", name, dlq_topic, msg.topic, msg.partition, msg.offset, error)
                 await dlq.send_and_wait(
                     dlq_topic,
                     key=msg.key,

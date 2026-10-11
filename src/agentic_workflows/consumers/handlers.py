@@ -35,7 +35,7 @@ def persistence_handler(pool: asyncpg.Pool):
             datetime.fromisoformat(event.started_at),
             datetime.fromisoformat(event.finished_at),
         )
-        log.info("recorded run %s (%s)", event.run_id, event.status)
+        log.info("recorded run_id=%s status=%s user_id=%s", event.run_id, event.status, event.user_id)
 
     return handle
 
@@ -49,13 +49,13 @@ def notification_handler(pool: asyncpg.Pool, webhook_url: str | None, http: http
             event.event_id,
         )
         if not claimed:
-            log.info("run %s: notification already sent, skipping", event.run_id)
+            log.info("notification already sent, skipping run_id=%s", event.run_id)
             return
         try:
             if webhook_url:
                 r = await http.post(webhook_url, json=asdict(event), timeout=10)
                 r.raise_for_status()
-            log.info("NOTIFY run %s %s: %s", event.run_id, event.status, (event.answer or event.error or "")[:120])
+            log.info("notified run_id=%s status=%s webhook=%s", event.run_id, event.status, "yes" if webhook_url else "no")
         except Exception:
             await pool.execute("DELETE FROM notifications_sent WHERE event_id = $1", event.event_id)
             raise

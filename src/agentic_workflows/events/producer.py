@@ -1,10 +1,14 @@
 import json
+import logging
 from dataclasses import asdict
 
 from aiokafka import AIOKafkaProducer
 from temporalio import activity
 
+from agentic_workflows.logs import step_logger
 from agentic_workflows.workflows.models import RunFinished
+
+log = logging.getLogger(__name__)
 
 
 def make_producer(bootstrap_servers: str) -> AIOKafkaProducer:
@@ -28,8 +32,9 @@ class EventActivities:
     @activity.defn
     async def publish_run_finished(self, event: RunFinished) -> None:
         # Key by run_id so every event for a run lands on the same partition, in order.
-        await self._producer.send_and_wait(
+        meta = await self._producer.send_and_wait(
             self._topic,
             key=event.run_id.encode(),
             value=encode(event),
         )
+        step_logger(log).info("published %s status=%s partition=%d offset=%d", self._topic, event.status, meta.partition, meta.offset)

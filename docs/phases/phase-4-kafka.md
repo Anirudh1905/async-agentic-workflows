@@ -5,7 +5,7 @@
 ```mermaid
 flowchart LR
     subgraph worker["Temporal worker"]
-        WF[AgentRunWorkflow] --> ACT1[run_agent_activity]
+        WF[AgentRunWorkflow] --> ACT1["agent.model / agent.tools<br/>(one activity per step)"]
         ACT1 -- "answer / out of retries" --> ACT2["publish_run_finished<br/>(retries until Kafka accepts)"]
     end
     ACT2 -- "key = run_id<br/>acks=all, idempotent" --> TOPIC[("RUN_FINISHED<br/>3 partitions")]

@@ -5034,7 +5034,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
           <path data-graph-role="automatic-crossover-underlay" d="M 1030 292 L 1200 292" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="worker" data-edge-to="agent" data-edge-label="run_agent_activity" data-edge-key="4" data-edge-id="worker-agent" data-composition-points="1030,292;1200,292" data-composition-crossover="halo" data-composition-independent="true" d="M 1030 292 L 1200 292" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-edge-from="worker" data-edge-to="agent" data-edge-label="agent.model · agent.tools" data-edge-key="4" data-edge-id="worker-agent" data-composition-points="1030,292;1200,292" data-composition-crossover="halo" data-composition-independent="true" d="M 1030 292 L 1200 292" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
           <path data-graph-role="automatic-crossover-underlay" d="M 1275 260 L 1275 160" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
@@ -5159,8 +5159,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="context" x="675" y="446" class="t-muted" font-size="9" text-anchor="middle">temporal, temporal_visibility</text>
         </g>
 
-        <g id="node-worker" data-node-id="worker" data-node-label="Temporal Worker" tabindex="0" role="button" aria-label="Focus Temporal Worker, AgentRunWorkflow, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AgentRunWorkflow" data-node-tag="agent: 3 attempts · 5 min" data-node-context="Architecture component">
-          <title>Temporal Worker · AgentRunWorkflow · Architecture component · agent: 3 attempts · 5 min</title>
+        <g id="node-worker" data-node-id="worker" data-node-label="Temporal Worker" tabindex="0" role="button" aria-label="Focus Temporal Worker, AgentRunWorkflow, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="AgentRunWorkflow" data-node-tag="1 activity per LLM / tool call" data-node-context="Architecture component">
+          <title>Temporal Worker · AgentRunWorkflow · Architecture component · 1 activity per LLM / tool call</title>
           <rect x="880" y="260" width="150" height="64" rx="6" class="c-mask"/>
           <rect x="880" y="260" width="150" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(886 266) scale(0.6875)">
@@ -5168,19 +5168,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </g>
           <text data-node-label="" data-detail-anchor="" x="955" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Temporal Worker</text>
         <text data-detail="context" x="955" y="306" class="t-muted" font-size="9" text-anchor="middle">AgentRunWorkflow</text>
-        <text data-detail="fine" x="955" y="316" class="t-backend" font-size="7" text-anchor="middle">agent: 3 attempts · 5 min</text>
+        <text data-detail="fine" x="955" y="316" class="t-backend" font-size="7" text-anchor="middle">1 activity per LLM / tool call</text>
         </g>
 
-        <g id="node-agent" data-node-id="agent" data-node-label="LangGraph Agent" tabindex="0" role="button" aria-label="Focus LangGraph Agent, model ⇄ tools loop, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="model ⇄ tools loop" data-node-tag="≤ 10 steps · in worker" data-node-context="Architecture component">
-          <title>LangGraph Agent · model ⇄ tools loop · Architecture component · ≤ 10 steps · in worker</title>
+        <g id="node-agent" data-node-id="agent" data-node-label="LangGraph Agent" tabindex="0" role="button" aria-label="Focus LangGraph Agent, graph runs in the workflow, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="graph runs in the workflow" data-node-tag="≤ 10 steps · retried per step" data-node-context="Architecture component">
+          <title>LangGraph Agent · graph runs in the workflow · Architecture component · ≤ 10 steps · retried per step</title>
           <rect x="1200" y="260" width="150" height="64" rx="6" class="c-mask"/>
           <rect x="1200" y="260" width="150" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1206 266) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" data-detail-anchor="" x="1275" y="290" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">LangGraph Agent</text>
-        <text data-detail="context" x="1275" y="306" class="t-muted" font-size="9" text-anchor="middle">model ⇄ tools loop</text>
-        <text data-detail="fine" x="1275" y="316" class="t-backend" font-size="7" text-anchor="middle">≤ 10 steps · in worker</text>
+        <text data-detail="context" x="1275" y="306" class="t-muted" font-size="9" text-anchor="middle">graph runs in the workflow</text>
+        <text data-detail="fine" x="1275" y="316" class="t-backend" font-size="7" text-anchor="middle">≤ 10 steps · retried per step</text>
         </g>
 
         <g id="node-llm" data-node-id="llm" data-node-label="OpenAI-compatible LLM" tabindex="0" role="button" aria-label="Focus OpenAI-compatible LLM, gpt-4o-mini default, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="gpt-4o-mini default" data-node-context="Architecture component">
@@ -5313,9 +5313,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <rect x="771.6" y="272" width="86.8" height="14" rx="3" class="c-mask"/>
           <text x="815" y="282" class="t-edge-emphasis" font-size="8" text-anchor="middle">agent-runs queue</text>
         </g>
-        <g data-detail="context" data-edge-from="worker" data-edge-to="agent" data-edge-label="run_agent_activity" data-edge-key="4" data-edge-id="worker-agent">
-          <rect x="1066.8" y="272" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="1115" y="282" class="t-edge-emphasis" font-size="8" text-anchor="middle">run_agent_activity</text>
+        <g data-detail="context" data-edge-from="worker" data-edge-to="agent" data-edge-label="agent.model · agent.tools" data-edge-key="4" data-edge-id="worker-agent">
+          <rect x="1050" y="272" width="130" height="14" rx="3" class="c-mask"/>
+          <text x="1115" y="282" class="t-edge-emphasis" font-size="8" text-anchor="middle">agent.model · agent.tools</text>
         </g>
         <g data-detail="context" data-edge-from="agent" data-edge-to="llm" data-edge-label="chat + tool calls" data-edge-key="5" data-edge-id="agent-llm">
           <rect x="1229.2" y="240" width="91.6" height="14" rx="3" class="c-mask"/>
@@ -5588,7 +5588,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>POST /runs needs a Bearer JWT; starts AgentRunWorkflow with user_id in input + memo, returns 202</li>
-          <li>Status query: queued → running_agent → publishing → completed / failed</li>
+          <li>Each LLM call (agent.model) and tool call (agent.tools) is its own activity, recorded in history</li>
           <li>GET /runs/{id} is 404 unless the memo user_id is the caller; GET /runs lists your rows from Postgres</li>
         </ul>
       </div>

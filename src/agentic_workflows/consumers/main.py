@@ -2,7 +2,6 @@
 
 import argparse
 import asyncio
-import logging
 
 import httpx
 
@@ -10,6 +9,7 @@ from agentic_workflows import db
 from agentic_workflows.config import get_settings
 from agentic_workflows.consumers.handlers import notification_handler, persistence_handler
 from agentic_workflows.consumers.runner import run_consumer
+from agentic_workflows.logs import setup_logging
 
 
 async def run(kind: str) -> None:
@@ -38,7 +38,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run a RUN_FINISHED consumer.")
     parser.add_argument("kind", choices=["persistence", "notifications"])
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    setup_logging(f"consumer-{args.kind}")
     asyncio.run(run(args.kind))
 
 
