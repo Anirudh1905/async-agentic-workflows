@@ -5,12 +5,20 @@
 # start a second stack named after the directory, clashing with `make up`.
 docker_compose("docker-compose.yml", project_name="async-agentic-workflows")
 
-for svc in ["postgres", "temporal-schema", "temporal", "temporal-init", "kafka", "kafka-init", "redis"]:
-    dc_resource(svc, labels=["infra"])
+# Compose services, grouped by what they belong to in the dashboard.
+for svc in ["temporal-schema", "temporal", "temporal-init"]:
+    dc_resource(svc, labels=["temporal"])
+dc_resource("temporal-ui", labels=["temporal"], links=[link("http://127.0.0.1:8233", "Temporal UI")])
 
-dc_resource("temporal-ui", labels=["infra"], links=[link("http://127.0.0.1:8233", "Temporal UI")])
-dc_resource("kafka-ui", labels=["infra"], links=[link("http://127.0.0.1:8081", "Kafka UI")])
-dc_resource("webhook-tester", labels=["infra"], links=[link("http://127.0.0.1:8082/s/a9e7c0de-0000-4000-8000-000000000001", "Webhook inbox")])
+for svc in ["kafka", "kafka-init"]:
+    dc_resource(svc, labels=["kafka"])
+dc_resource("kafka-ui", labels=["kafka"], links=[link("http://127.0.0.1:8081", "Kafka UI")])
+
+for svc in ["postgres", "redis"]:
+    dc_resource(svc, labels=["data"])
+dc_resource("pgweb", labels=["data"], links=[link("http://127.0.0.1:8083", "Postgres UI")])
+
+dc_resource("webhook-tester", labels=["tools"], links=[link("http://127.0.0.1:8082/s/a9e7c0de-0000-4000-8000-000000000001", "Webhook inbox")])
 
 # App processes on the host. Tilt restarts them when anything under src/ changes,
 # and only starts them once Temporal is serving and the namespace exists.

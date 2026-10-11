@@ -7,12 +7,12 @@ from datetime import timedelta
 from typing import Annotated
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from temporalio.client import Client, WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.service import RPCError, RPCStatusCode
 
-from agentic_workflows.api.auth import CurrentUser
-from agentic_workflows.api.deps import get_db, get_task_queue, get_temporal_client
+from agentic_workflows.api.deps import get_active_runs, get_db, get_limiter, get_task_queue, get_temporal_client
+from agentic_workflows.api.routes.auth import CurrentUser
 from agentic_workflows.api.schemas import CreateRun, RunCreated, RunStatus, RunSummary
 from agentic_workflows.config import get_settings
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
@@ -28,22 +28,39 @@ Db = Annotated[asyncpg.Pool, Depends(get_db)]
 _not_found = HTTPException(404, "run not found")
 
 
-@router.post("", status_code=202, response_model=RunCreated)
-async def create_run(body: CreateRun, user: CurrentUser, client: TemporalClient, task_queue: TaskQueue):
+def limit_by_user(bucket: str):
+    async def dependency(user: CurrentUser, response: Response, limiter=Depends(get_limiter)) -> None:
+        if limiter is not None:
+            await limiter.enforce(response, bucket, user.id)
+
+    return Depends(dependency)
+
+
+@router.post("", status_code=202, response_model=RunCreated, dependencies=[limit_by_user("runs_create")])
+async def create_run(
+    body: CreateRun, user: CurrentUser, client: TemporalClient, task_queue: TaskQueue, active_runs=Depends(get_active_runs)
+):
     run_id = str(uuid.uuid4())
-    await client.start_workflow(
-        AgentRunWorkflow.run,
-        RunInput(run_id=run_id, prompt=body.prompt, user_id=user.id, max_steps=get_settings().agent_max_steps),
-        id=run_id,
-        task_queue=task_queue,
-        # The owner travels with the execution, so GET /runs/{id} can check it from describe().
-        memo={"user_id": user.id},
-    )
+    if active_runs is not None:
+        await active_runs.enforce(user.id, run_id)
+    try:
+        await client.start_workflow(
+            AgentRunWorkflow.run,
+            RunInput(run_id=run_id, prompt=body.prompt, user_id=user.id, max_steps=get_settings().agent_max_steps),
+            id=run_id,
+            task_queue=task_queue,
+            # The owner travels with the execution, so GET /runs/{id} can check it from describe().
+            memo={"user_id": user.id},
+        )
+    except BaseException:
+        if active_runs is not None:
+            await active_runs.release(user.id, run_id)
+        raise
     log.info("run started run_id=%s user_id=%s prompt_chars=%d", run_id, user.id, len(body.prompt))
     return RunCreated(run_id=run_id)
 
 
-@router.get("", response_model=list[RunSummary])
+@router.get("", response_model=list[RunSummary], dependencies=[limit_by_user("runs_read")])
 async def list_runs(user: CurrentUser, db: Db, limit: Annotated[int, Query(ge=1, le=100)] = 20):
     """The user's finished runs, newest first. In-flight runs appear once RUN_FINISHED is recorded."""
     rows = await db.fetch(
@@ -57,7 +74,7 @@ async def list_runs(user: CurrentUser, db: Db, limit: Annotated[int, Query(ge=1,
     return [RunSummary(**dict(r)) for r in rows]
 
 
-@router.get("/{run_id}", response_model=RunStatus)
+@router.get("/{run_id}", response_model=RunStatus, dependencies=[limit_by_user("runs_read")])
 async def get_run(run_id: str, user: CurrentUser, client: TemporalClient):
     handle = client.get_workflow_handle_for(AgentRunWorkflow.run, run_id)
     try:

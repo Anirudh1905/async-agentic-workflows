@@ -36,7 +36,7 @@ src/agentic_workflows/
   agent/graph.py    the graph; its `model` and `tools` nodes are the activities
   api/
     main.py         `app`, lifespan (connects the Temporal client), /healthz
-    runs.py         APIRouter: POST /runs, GET /runs/{id}
+    routes/runs.py  APIRouter: POST /runs, GET /runs/{id}
     schemas.py      request/response models
     deps.py         get_temporal_client, get_task_queue
 Tiltfile            dev loop (below)
@@ -136,7 +136,7 @@ This is also the reason for the main rule of workflow code: **it must be determi
 
 **In this project:**
 
-- **One task queue, one worker process for everything:** `agent-runs`, and the worker in `workflows/worker.py`. It registers the workflow and both activities:
+- **One task queue, one worker process for everything:** `agent-runs`, and the worker in `workflows/worker.py`. It registers the workflow, the publish activity, and the plugin's two node activities:
 
   ```python
   Worker(client, task_queue="agent-runs",
@@ -154,8 +154,9 @@ make up                     # infra from phase 2
 uv run worker               # terminal 1
 uv run uvicorn agentic_workflows.api.main:app --port 8000   # terminal 2
 
-curl -XPOST localhost:8000/runs -H 'content-type: application/json' -d '{"prompt":"..."}'
-curl localhost:8000/runs/<run_id>
+# since Phase 5 you need a token first; see the Phase 5 doc's "Try it"
+curl -XPOST localhost:8000/runs -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"prompt":"..."}'
+curl localhost:8000/runs/<run_id> -H "Authorization: Bearer $TOKEN"
 ```
 
 Or start everything with Tilt (next section).
@@ -178,8 +179,12 @@ flowchart LR
 
 | Resource            | Label     | What it does                                                                                                                                                                                                                                             |
 | ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| compose services    | `infra` | the Phase 2 stack, including the`temporal-schema` and `temporal-init` one-shots. The UIs have links in the dashboard.                                                                                                                                |
+| `temporal-schema`, `temporal`, `temporal-init`, `temporal-ui` | `temporal` | the Temporal server, its two one-shots (schema setup, namespace registration) and the UI, linked from the dashboard. |
+| `kafka`, `kafka-init`, `kafka-ui` | `kafka` | the broker, the topic-creating one-shot, and the Kafka UI. |
+| `postgres`, `redis`, `pgweb` | `data` | the app and Temporal databases, the rate-limit store, and the Postgres UI. |
+| `webhook-tester` | `tools` | the dummy notification receiver; its inbox is linked from the dashboard. |
 | `worker`, `api` | `app`   | `serve_cmd` processes. Tilt restarts them when anything under `src/` changes and starts them only after `temporal-init` has finished, meaning the server is serving and the namespace exists. `api` has an HTTP readiness probe on `/healthz`. |
+| `consumer-persistence`, `consumer-notifications` | `app` | Phase 4's `RUN_FINISHED` consumers. They restart on `src/` changes and start after `kafka-init` and `postgres`. |
 | `streamlit`       | `tools` | the testing-only chat UI. Starts only when you click ▶.                                                                                                                                                                                                 |
 | `send-test-run`   | `tools` | button:`POST /runs` with a sample prompt. The run ID shows in its log.                                                                                                                                                                                 |
 | `smoke`           | `tools` | button:`make smoke`                                                                                                                                                                                                                                    |

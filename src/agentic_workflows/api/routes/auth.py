@@ -6,11 +6,11 @@ from typing import Annotated
 
 import asyncpg
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pwdlib import PasswordHash
 
-from agentic_workflows.api.deps import get_db
+from agentic_workflows.api.deps import get_db, get_limiter
 from agentic_workflows.api.schemas import RegisterUser, Token, User
 from agentic_workflows.config import get_settings
 
@@ -54,7 +54,15 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Db
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-@router.post("/register", status_code=201, response_model=User)
+async def limit_by_ip(request: Request, response: Response, limiter=Depends(get_limiter)) -> None:
+    # Keyed by the client address: these routes run before anyone is logged in.
+    # Behind a proxy this would need the proxy's X-Forwarded-For, which isn't trusted here.
+    # No limiter (disabled, or not set up as in unit tests) means no limit.
+    if limiter is not None:
+        await limiter.enforce(response, "auth", request.client.host if request.client else "unknown")
+
+
+@router.post("/register", status_code=201, response_model=User, dependencies=[Depends(limit_by_ip)])
 async def register(body: RegisterUser, db: Db):
     try:
         row = await db.fetchrow(
@@ -69,7 +77,7 @@ async def register(body: RegisterUser, db: Db):
     return User(id=row["id"], email=row["email"])
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(limit_by_ip)])
 async def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: Db, request: Request):
     """OAuth2 password flow: form fields `username` (the email) and `password`."""
     row = await db.fetchrow("SELECT id::text, password_hash FROM users WHERE email = $1", form.username.lower())

@@ -21,9 +21,9 @@ from temporalio.worker import Worker
 
 from agentic_workflows.agent import graph as agent_graph
 from agentic_workflows.agent import tools
-from agentic_workflows.api.auth import get_current_user
 from agentic_workflows.api.deps import get_task_queue, get_temporal_client
 from agentic_workflows.api.main import app
+from agentic_workflows.api.routes.auth import get_current_user
 from agentic_workflows.api.schemas import User
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
 from agentic_workflows.workflows.models import RunFinished, RunInput

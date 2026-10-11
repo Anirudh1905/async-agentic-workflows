@@ -32,6 +32,17 @@ class Settings(BaseSettings):
     jwt_secret: str | None = None
     jwt_ttl_minutes: int = 60
 
+    # Token-bucket rate limits, "<burst>/<period>": a full bucket allows <burst>
+    # requests at once, then refills <burst> per <period> (s, min or h).
+    redis_url: str = "redis://127.0.0.1:6380/0"
+    rate_limit_enabled: bool = True
+    rate_limit_auth: str = "5/min"  # per client IP, register + login
+    rate_limit_runs_create: str = "5/min"  # per user, POST /runs
+    rate_limit_runs_read: str = "60/min"  # per user, GET /runs and /runs/{id}
+    # Runs one user can have in flight at once; 0 turns the cap off. Needs Redis,
+    # so RATE_LIMIT_ENABLED=false turns it off too.
+    max_active_runs_per_user: int = 3
+
 
 @lru_cache
 def get_settings() -> Settings:

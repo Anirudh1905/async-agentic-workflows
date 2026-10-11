@@ -2,38 +2,23 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Async Agentic Workflows — Phase 5",
+    "title": "Async Agentic Workflows",
     "output": "docs/architecture/architecture.html",
     "quality_profile": "showcase",
     "locale": "en"
   },
   "components": [
     {
-      "id": "client",
+      "id": "user",
       "type": "external",
-      "label": "Client",
-      "sublabel": "Bearer token · Tilt button",
+      "label": "User",
+      "sublabel": "curl · Tilt · /docs",
       "pos": [
-        40,
-        260
+        30,
+        190
       ],
       "size": [
-        130,
-        64
-      ]
-    },
-    {
-      "id": "api",
-      "type": "backend",
-      "label": "Run API",
-      "sublabel": "/runs · verifies JWT",
-      "tag": "202 · per-user runs",
-      "pos": [
-        260,
-        260
-      ],
-      "size": [
-        150,
+        140,
         64
       ]
     },
@@ -42,408 +27,339 @@
       "type": "backend",
       "label": "Login API",
       "sublabel": "/auth · issues JWT",
-      "tag": "argon2id · 30m JWT",
       "pos": [
-        40,
-        470
-      ],
-      "size": [
-        130,
-        64
-      ]
-    },
-    {
-      "id": "temporal_ui",
-      "type": "frontend",
-      "label": "Temporal UI",
-      "sublabel": "web :8233",
-      "pos": [
-        600,
-        100
-      ],
-      "size": [
-        150,
+        250,
         60
-      ]
-    },
-    {
-      "id": "temporal",
-      "type": "cloud",
-      "label": "Temporal Server",
-      "sublabel": "1.32 · gRPC :7233",
-      "tag": "namespace default",
-      "pos": [
-        600,
-        260
       ],
       "size": [
-        150,
+        140,
         64
-      ]
-    },
-    {
-      "id": "pg_temporal",
-      "type": "database",
-      "label": "Postgres · Temporal dbs",
-      "sublabel": "temporal, temporal_visibility",
-      "pos": [
-        590,
-        400
       ],
-      "size": [
-        170,
-        64
-      ]
-    },
-    {
-      "id": "worker",
-      "type": "backend",
-      "label": "Temporal Worker",
-      "sublabel": "AgentRunWorkflow",
-      "tag": "1 activity per LLM / tool call",
-      "pos": [
-        880,
-        260
-      ],
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
-      "id": "agent",
-      "type": "backend",
-      "label": "LangGraph Agent",
-      "sublabel": "graph runs in the workflow",
-      "tag": "≤ 10 steps · retried per step",
-      "pos": [
-        1200,
-        260
-      ],
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
-      "id": "llm",
-      "type": "external",
-      "label": "OpenAI-compatible LLM",
-      "sublabel": "gpt-4o-mini default",
-      "pos": [
-        1200,
-        100
-      ],
-      "size": [
-        150,
-        60
-      ]
-    },
-    {
-      "id": "ddg",
-      "type": "external",
-      "label": "DuckDuckGo",
-      "sublabel": "top 5 results",
-      "pos": [
-        1460,
-        260
-      ],
-      "size": [
-        130,
-        64
-      ]
+      "tag": "argon2id · 60m tokens"
     },
     {
       "id": "redis",
       "type": "database",
       "label": "Redis",
-      "sublabel": "unused until phase 6",
-      "tag": "AOF :6380",
+      "sublabel": "rate limits · active runs",
       "pos": [
-        1460,
-        470
+        250,
+        190
       ],
       "size": [
-        150,
+        140,
         64
-      ]
+      ],
+      "tag": "token buckets · fail open"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Run API",
+      "sublabel": "/runs · checks JWT",
+      "pos": [
+        250,
+        320
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "202, never waits"
+    },
+    {
+      "id": "temporal",
+      "type": "cloud",
+      "label": "Temporal Server",
+      "sublabel": "durable workflows",
+      "pos": [
+        480,
+        320
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "1.32 · :7233"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker",
+      "sublabel": "AgentRunWorkflow",
+      "pos": [
+        710,
+        320
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "task queue agent-runs"
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "LangGraph Agent",
+      "sublabel": "LLM ⇄ tools",
+      "pos": [
+        710,
+        170
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "1 activity per step"
     },
     {
       "id": "kafka",
       "type": "messagebus",
-      "label": "Kafka · RUN_FINISHED",
-      "sublabel": "3 partitions :9092",
-      "tag": "key = run_id",
+      "label": "Kafka",
+      "sublabel": "RUN_FINISHED",
       "pos": [
-        880,
-        470
+        940,
+        320
       ],
       "size": [
-        150,
+        140,
         64
-      ]
+      ],
+      "tag": "key = run_id · + DLQ"
     },
     {
-      "id": "cons_persist",
+      "id": "notify",
       "type": "backend",
-      "label": "consumer persistence",
-      "sublabel": "group persistence",
+      "label": "Notifications",
+      "sublabel": "consumer · dedupe",
       "pos": [
-        560,
-        680
+        1170,
+        220
       ],
       "size": [
-        150,
+        140,
         64
-      ]
-    },
-    {
-      "id": "dlq",
-      "type": "messagebus",
-      "label": "RUN_FINISHED.DLQ",
-      "sublabel": "error · consumer · source",
-      "pos": [
-        880,
-        680
       ],
-      "size": [
-        150,
-        64
-      ]
+      "tag": "group notifications"
     },
     {
-      "id": "cons_notify",
+      "id": "persist",
       "type": "backend",
-      "label": "consumer notifications",
-      "sublabel": "group notifications",
+      "label": "Persistence",
+      "sublabel": "consumer · upsert",
       "pos": [
-        1200,
-        680
+        1170,
+        420
       ],
       "size": [
-        150,
+        140,
         64
-      ]
+      ],
+      "tag": "group persistence"
     },
     {
       "id": "webhook",
       "type": "external",
-      "label": "webhook-tester",
-      "sublabel": "compose :8082 inbox",
+      "label": "Webhook",
+      "sublabel": "webhook-tester :8082",
       "pos": [
-        1520,
-        680
+        1410,
+        220
       ],
       "size": [
-        150,
+        140,
         64
-      ],
-      "tag": "NOTIFY_WEBHOOK_URL · UI /s/<uuid>"
+      ]
     },
     {
-      "id": "pg_app",
+      "id": "postgres",
       "type": "database",
-      "label": "Postgres · agentic db",
-      "sublabel": "users, runs, notifications_sent",
+      "label": "Postgres",
+      "sublabel": "runs · users",
       "pos": [
-        860,
-        880
+        1410,
+        420
       ],
       "size": [
-        190,
+        140,
         64
+      ],
+      "tag": "agentic db"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "API layer: FastAPI :8000 + Redis",
+      "wraps": [
+        "login",
+        "redis",
+        "api"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Temporal",
+      "wraps": [
+        "temporal",
+        "worker",
+        "agent"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Consumers",
+      "wraps": [
+        "notify",
+        "persist"
       ]
     }
   ],
   "connections": [
     {
-      "id": "client-api",
-      "from": "client",
-      "to": "api",
-      "label": "HTTP + JWT",
-      "variant": "emphasis"
+      "id": "user-login",
+      "from": "user",
+      "to": "login",
+      "label": "sign in",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          100,
+          92
+        ]
+      ]
     },
     {
-      "id": "client-login",
-      "from": "client",
-      "to": "login",
-      "label": "login"
+      "id": "user-api",
+      "from": "user",
+      "to": "api",
+      "label": "HTTP + JWT",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          100,
+          352
+        ]
+      ]
+    },
+    {
+      "id": "login-redis",
+      "from": "login",
+      "to": "redis",
+      "label": "per IP",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "per user",
+      "fromSide": "top",
+      "toSide": "bottom"
     },
     {
       "id": "api-temporal",
       "from": "api",
       "to": "temporal",
-      "label": "start · status · result",
+      "label": "start run",
       "variant": "emphasis"
     },
     {
       "id": "temporal-worker",
       "from": "temporal",
       "to": "worker",
-      "label": "agent-runs queue",
+      "label": "task queue",
       "variant": "emphasis"
     },
     {
       "id": "worker-agent",
       "from": "worker",
       "to": "agent",
-      "label": "agent.model · agent.tools",
-      "variant": "emphasis"
-    },
-    {
-      "id": "agent-llm",
-      "from": "agent",
-      "to": "llm",
-      "label": "chat + tool calls"
-    },
-    {
-      "id": "agent-ddg",
-      "from": "agent",
-      "to": "ddg",
-      "label": "web_search"
-    },
-    {
-      "id": "temporal-pg",
-      "from": "temporal",
-      "to": "pg_temporal",
-      "label": "history",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
-      "id": "ui-temporal",
-      "from": "temporal_ui",
-      "to": "temporal",
-      "label": "inspect runs",
-      "variant": "dashed",
-      "toSide": "top",
-      "fromSide": "bottom"
+      "label": "agent.* steps",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
     },
     {
       "id": "worker-kafka",
       "from": "worker",
       "to": "kafka",
-      "label": "publish_run_finished",
+      "label": "publish",
       "variant": "emphasis"
-    },
-    {
-      "id": "kafka-persist",
-      "from": "kafka",
-      "to": "cons_persist",
-      "label": "consume",
-      "fromSide": "left",
-      "toSide": "top"
     },
     {
       "id": "kafka-notify",
       "from": "kafka",
-      "to": "cons_notify",
+      "to": "notify",
       "label": "consume",
-      "fromSide": "right",
-      "toSide": "top"
-    },
-    {
-      "id": "persist-dlq",
-      "from": "cons_persist",
-      "to": "dlq",
-      "label": "3 fails or bad payload",
-      "variant": "dashed"
-    },
-    {
-      "id": "notify-dlq",
-      "from": "cons_notify",
-      "to": "dlq",
-      "label": "3 fails or bad payload",
-      "variant": "dashed"
-    },
-    {
-      "id": "persist-pg",
-      "from": "cons_persist",
-      "to": "pg_app",
-      "label": "UPSERT runs",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
-      "id": "notify-pg",
-      "from": "cons_notify",
-      "to": "pg_app",
-      "label": "claim event_id",
-      "fromSide": "bottom",
-      "toSide": "right",
+      "fromSide": "top",
+      "toSide": "left",
       "via": [
         [
-          1275,
-          912
+          1010,
+          252
+        ]
+      ]
+    },
+    {
+      "id": "kafka-persist",
+      "from": "kafka",
+      "to": "persist",
+      "label": "consume",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          1010,
+          452
         ]
       ]
     },
     {
       "id": "notify-webhook",
-      "from": "cons_notify",
+      "from": "notify",
       "to": "webhook",
-      "label": "POST event JSON",
+      "label": "POST JSON",
       "variant": "dashed"
     },
     {
-      "id": "login-pg",
-      "from": "login",
-      "to": "pg_app",
-      "label": "users",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          105,
-          984
-        ],
-        [
-          955,
-          984
-        ]
-      ]
-    },
-    {
-      "id": "api-pg",
-      "from": "api",
-      "to": "pg_app",
-      "label": "user check · my runs",
-      "fromSide": "bottom",
-      "toSide": "left",
-      "via": [
-        [
-          335,
-          912
-        ]
-      ]
+      "id": "persist-postgres",
+      "from": "persist",
+      "to": "postgres",
+      "label": "UPSERT runs"
     }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "Run lifecycle",
+      "title": "Request path",
       "items": [
-        "POST /runs needs a Bearer JWT; starts AgentRunWorkflow with user_id in input + memo, returns 202",
-        "Each LLM call (agent.model) and tool call (agent.tools) is its own activity, recorded in history",
-        "GET /runs/{id} is 404 unless the memo user_id is the caller; GET /runs lists your rows from Postgres"
+        "POST /runs with a JWT returns 202; the run continues as a Temporal workflow",
+        "Each LLM call and tool call (web_search, deep_analysis) is its own activity in the Temporal UI (:8233)",
+        "Every finished run, completed or failed, publishes RUN_FINISHED keyed by run_id"
       ]
     },
     {
       "dot": "emerald",
-      "title": "Delivery guarantees",
+      "title": "Reliability",
       "items": [
-        "Producer: acks=all, idempotent; publish retries until Kafka accepts",
-        "Consumers commit only after success or DLQ: at-least-once, replay-safe",
-        "Persistence upserts on run_id; notifications claim event_id before sending"
+        "Agent steps retry on their own; a crash resumes from the last finished step",
+        "Consumers are at-least-once and idempotent; 3 failures park a message in RUN_FINISHED.DLQ",
+        "Redis limits: auth 5/min per IP, runs 5/min and reads 60/min per user; fails open",
+        "At most 3 active runs per user; finished runs free their slot via Temporal describe()"
       ]
     },
     {
       "dot": "amber",
-      "title": "Runtime and what's next",
+      "title": "Not drawn",
       "items": [
-        "Docker Compose: Temporal, Postgres (one instance, two logical stores), Kafka, Redis, webhook-tester",
-        "Host via Tilt: Login + Run API (two routers, one FastAPI process :8000), worker, both consumers",
-        "Phase 6: Redis token-bucket rate limiting in front of /auth and /runs"
+        "Temporal keeps its history in Postgres (temporal dbs); the agent calls an OpenAI-compatible LLM and DuckDuckGo",
+        "The APIs read users and runs from the same Postgres; notifications dedupe in notifications_sent",
+        "Everything runs locally via Docker Compose + Tilt, with UIs for Temporal, Kafka and Postgres"
       ]
     }
   ]

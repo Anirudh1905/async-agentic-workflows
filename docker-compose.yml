@@ -161,6 +161,18 @@ services:
     ports:
       - "127.0.0.1:${WEBHOOK_TESTER_PORT:-8082}:8080"
 
+  # Browse tables and run SQL against the agentic db. The database dropdown
+  # also reaches the temporal dbs.
+  pgweb:
+    image: sosedoff/pgweb:0.17.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGWEB_DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${APP_DB:-agentic}?sslmode=disable
+    ports:
+      - "127.0.0.1:${PGWEB_PORT:-8083}:8081"
+
 volumes:
   postgres_data:
   kafka_data:
