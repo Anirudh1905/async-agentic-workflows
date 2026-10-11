@@ -21,7 +21,7 @@ User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka to
 | 2 | [Infrastructure in Docker Compose](docs/phases/phase-2-infrastructure.md) | ✅ done |
 | 3 | [Temporal workflow + agent run API](docs/phases/phase-3-temporal.md) (+ Tilt dev loop) | ✅ done |
 | 4 | [Kafka producer and consumers](docs/phases/phase-4-kafka.md) | ✅ done |
-| 5 | [Login API](docs/phases/phase-5-login-api.md) | ⏳ |
+| 5 | [Login API](docs/phases/phase-5-login-api.md) | ✅ done |
 | 6 | [Redis token-bucket rate limiting](docs/phases/phase-6-rate-limiting.md) | ⏳ |
 
 ## Quick start
@@ -29,7 +29,7 @@ User ─▶ Redis token bucket ─┬─▶ Temporal workflow ──▶ Kafka to
 Requires Python 3.13, [uv](https://docs.astral.sh/uv/) and Docker.
 
 ```bash
-cp .env.example .env        # fill in OPENAI_API_KEY (and OPENAI_BASE_URL for a gateway)
+cp .env.example .env        # fill in OPENAI_API_KEY (+ OPENAI_BASE_URL for a gateway) and JWT_SECRET (openssl rand -hex 32)
 uv sync
 ```
 
@@ -49,11 +49,13 @@ uv run consumer persistence     # terminal 3: RUN_FINISHED → Postgres `runs`
 uv run consumer notifications   # terminal 4: RUN_FINISHED → notification
 ```
 
-Start a run, then poll it:
+Register, log in, then start and poll a run. Or use the **Authorize** button at http://127.0.0.1:8000/docs, or Tilt's `send-test-run` button.
 
 ```bash
-curl -XPOST localhost:8000/runs -H 'content-type: application/json' -d '{"prompt":"What is new in the latest Python release?"}'
-curl localhost:8000/runs/<run_id>
+curl -XPOST localhost:8000/auth/register -H 'content-type: application/json' -d '{"email":"me@example.com","password":"a-long-password"}'
+TOKEN=$(curl -s -XPOST localhost:8000/auth/login -d 'username=me@example.com&password=a-long-password' | jq -r .access_token)
+curl -XPOST localhost:8000/runs -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"prompt":"What is new in the latest Python release?"}'
+curl localhost:8000/runs/<run_id> -H "Authorization: Bearer $TOKEN"
 ```
 
 Other entry points:
@@ -77,10 +79,10 @@ src/agentic_workflows/
   config.py          settings loaded from env / .env
   agent/
     graph.py         LangGraph StateGraph: model ⇄ tools loop
-    tools.py         web_search tool (DuckDuckGo, no API key)
+    tools.py         web_search (DuckDuckGo, no API key), deep_analysis (slow 5-7 min test tool)
     cli.py           `uv run agent "<prompt>"`
   workflows/         Temporal: AgentRunWorkflow, run_agent_activity, worker
-  api/               FastAPI run API: POST /runs, GET /runs/{id}
+  api/               FastAPI: /auth (register, login → JWT) + /runs (per-user)
   events/producer.py RUN_FINISHED producer (Temporal activity)
   consumers/         persistence + notification consumers, retry/DLQ runner
   db.py              asyncpg pool + schema (runs, notifications_sent)

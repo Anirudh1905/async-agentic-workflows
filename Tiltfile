@@ -55,8 +55,7 @@ local_resource(
 # One-click actions (manual resources act as buttons).
 local_resource(
     "send-test-run",
-    cmd="""curl -s -XPOST http://127.0.0.1:8000/runs -H 'content-type: application/json' \
-        -d '{"prompt": "What is the latest Python release? Search it."}'""",
+    cmd="uv run python scripts/send_test_run.py",
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
     resource_deps=["api", "worker"],

@@ -53,6 +53,8 @@ Tiltfile            dev loop (below)
 
 ### API
 
+> Since Phase 5, every `/runs` route needs a Bearer token and only shows the caller's own runs. See [Phase 5](phase-5-login-api.md).
+
 | Method | Path | Returns |
 | --- | --- | --- |
 | `POST` | `/runs` `{prompt}` (1–4000 chars) | `202 {run_id}` right away; the workflow ID is the `run_id` |

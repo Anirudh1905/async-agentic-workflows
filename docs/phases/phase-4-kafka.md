@@ -13,7 +13,7 @@ flowchart LR
     TOPIC --> N["consumer notifications<br/>group: notifications"]
     P -- "UPSERT on run_id" --> RUNS[("Postgres<br/>runs")]
     N -- "claim event_id" --> SENT[("Postgres<br/>notifications_sent")]
-    N --> OUT["log line + optional<br/>NOTIFY_WEBHOOK_URL POST"]
+    N --> OUT["log line + POST to NOTIFY_WEBHOOK_URL<br/>(local: webhook-tester :8082)"]
     P & N -. "3 failed attempts<br/>or bad payload" .-> DLQ[("RUN_FINISHED.DLQ")]
 ```
 
@@ -39,7 +39,7 @@ src/agentic_workflows/
 | `status`                      | `completed` or `failed`                                                             |
 | `answer` / `error`          | One of the two is set                                                                   |
 | `started_at`, `finished_at` | ISO-8601 strings, taken from`workflow.now()` (deterministic)                          |
-| `user_id`                     | `null` until Phase 5                                                                  |
+| `user_id` | The user who started the run (filled in since Phase 5); `null` only for runs from before login existed |
 
 JSON in the value, `run_id` as the key, no headers. The topic already says what the event is; add an `event_type` header only if one topic ever carries several event types. One dataclass (`RunFinished`) serves as the Temporal activity input, the wire format and the consumer's parse target (via a pydantic `TypeAdapter`), so there's no second schema to drift.
 
@@ -193,7 +193,7 @@ open http://127.0.0.1:8081
 | Inbox UI | http://127.0.0.1:8082/s/a9e7c0de-0000-4000-8000-000000000001 (also linked from Tilt's `webhook-tester` resource) |
 | Read it from a script | `curl http://127.0.0.1:8082/api/session/a9e7c0de-0000-4000-8000-000000000001/requests` |
 
-Every finished run shows up there as one `POST` whose body is the full `RUN_FINISHED` JSON (`event_id`, `run_id`, `status`, `prompt`, `answer`/`error`, timestamps, `user_id`). To turn notifications into log lines only, unset `NOTIFY_WEBHOOK_URL`. To use a real receiver (Slack, an internal service), point it at that URL instead.
+Every finished run shows up there as one `POST` whose body is the full `RUN_FINISHED` JSON (`event_id`, `run_id`, `status`, `prompt`, `answer`/`error`, timestamps, and `user_id` of the user who started the run). To turn notifications into log lines only, unset `NOTIFY_WEBHOOK_URL`. To use a real receiver (Slack, an internal service), point it at that URL instead.
 
 ## Running it
 

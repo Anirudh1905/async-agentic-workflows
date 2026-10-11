@@ -26,7 +26,8 @@ class AgentRunWorkflow:
             answer = await workflow.execute_activity(
                 run_agent_activity,
                 AgentInput(prompt=input.prompt),
-                start_to_close_timeout=timedelta(minutes=5),
+                # Long enough for deep_analysis (5-7 min) plus the model calls around it.
+                start_to_close_timeout=timedelta(minutes=15),
                 retry_policy=RetryPolicy(
                     initial_interval=timedelta(seconds=2),
                     backoff_coefficient=2.0,
@@ -55,6 +56,7 @@ class AgentRunWorkflow:
             error=error,
             started_at=started_at,
             finished_at=workflow.now().isoformat(),
+            user_id=input.user_id,
         )
         # No maximum_attempts: if Kafka is down the run waits for it rather than
         # finishing without anyone downstream hearing about it.
