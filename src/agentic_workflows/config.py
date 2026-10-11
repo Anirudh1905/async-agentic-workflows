@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # If set, the notification consumer POSTs each RUN_FINISHED event here; otherwise it only logs.
     notify_webhook_url: str | None = None
 
+    # Signs login tokens. Only the API needs it, so it's optional here and the API
+    # refuses to start without it. Generate one with: openssl rand -hex 32
+    jwt_secret: str | None = None
+    jwt_ttl_minutes: int = 30
+
 
 @lru_cache
 def get_settings() -> Settings:

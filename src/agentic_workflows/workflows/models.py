@@ -8,6 +8,7 @@ from dataclasses import dataclass
 class RunInput:
     run_id: str
     prompt: str
+    user_id: str | None = None  # who started the run; defaulted so pre-phase-5 histories still decode
 
 
 @dataclass
@@ -34,4 +35,4 @@ class RunFinished:
     error: str | None
     started_at: str
     finished_at: str
-    user_id: str | None = None  # filled in by phase 5 (login)
+    user_id: str | None = None  # who started the run; None for runs from before login existed

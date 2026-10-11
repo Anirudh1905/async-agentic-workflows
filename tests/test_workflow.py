@@ -12,7 +12,9 @@ from temporalio.client import WorkflowFailureError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
+from agentic_workflows.api.auth import get_current_user
 from agentic_workflows.api.deps import get_task_queue, get_temporal_client
+from agentic_workflows.api.schemas import User
 from agentic_workflows.api.main import app
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
 from agentic_workflows.workflows.models import AgentInput, RunFinished, RunInput
@@ -20,12 +22,18 @@ from agentic_workflows.workflows.models import AgentInput, RunFinished, RunInput
 TASK_QUEUE = "test-agent-runs"
 
 
+ALICE = User(id="user-alice", email="alice@example.com")
+BOB = User(id="user-bob", email="bob@example.com")
+
+
 @asynccontextmanager
-async def api_client(env):
-    """HTTP client for the real app, wired to the test server instead of a live Temporal.
+async def api_client(env, user: User = ALICE):
+    """HTTP client for the real app, wired to the test server instead of a live Temporal,
+    and logged in as `user` (auth itself is covered in test_auth.py).
     httpx's ASGI transport doesn't run lifespan, so the app never connects on its own."""
     app.dependency_overrides[get_temporal_client] = lambda: env.client
     app.dependency_overrides[get_task_queue] = lambda: TASK_QUEUE
+    app.dependency_overrides[get_current_user] = lambda: user
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
@@ -142,7 +150,14 @@ def test_api_starts_run_and_reports_result():
             assert (await http.get(f"/runs/{uuid.uuid4()}")).status_code == 404
             assert (await http.post("/runs", json={"prompt": ""})).status_code == 422
 
-    asyncio.run(run_with(echo, go))
+        # Another user can't see it: same 404 as a run that doesn't exist.
+        async with api_client(env, user=BOB) as http:
+            assert (await http.get(f"/runs/{run_id}")).status_code == 404
+
+    published = []
+    asyncio.run(run_with(echo, go, published))
+    # The starting user is carried into the workflow and out on RUN_FINISHED.
+    assert [e.user_id for e in published] == [ALICE.id]
 
 
 def test_api_reports_running_when_no_worker_is_polling():

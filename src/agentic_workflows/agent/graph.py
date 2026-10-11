@@ -10,6 +10,7 @@ from agentic_workflows.agent.tools import TOOLS
 SYSTEM_PROMPT = (
     "You are a helpful assistant. Use the web_search tool to look things up, "
     "and cite the links you used. "
+    "Use the deep_analysis tool only when the user asks for a deep analysis. "
     "Answer concisely once you have what you need."
 )
 

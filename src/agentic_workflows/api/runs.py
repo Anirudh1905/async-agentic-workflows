@@ -1,15 +1,18 @@
-"""Run endpoints: start AgentRunWorkflow and report its status. Never waits for the agent."""
+"""Run endpoints: start AgentRunWorkflow and report its status. Never waits for the agent.
+All routes require a logged-in user, who only ever sees their own runs."""
 
 import uuid
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+import asyncpg
+from fastapi import APIRouter, Depends, HTTPException, Query
 from temporalio.client import Client, WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.service import RPCError, RPCStatusCode
 
-from agentic_workflows.api.deps import get_task_queue, get_temporal_client
-from agentic_workflows.api.schemas import CreateRun, RunCreated, RunStatus
+from agentic_workflows.api.auth import CurrentUser
+from agentic_workflows.api.deps import get_db, get_task_queue, get_temporal_client
+from agentic_workflows.api.schemas import CreateRun, RunCreated, RunStatus, RunSummary
 from agentic_workflows.workflows.agent_run import AgentRunWorkflow
 from agentic_workflows.workflows.models import RunInput
 
@@ -17,29 +20,51 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 
 TemporalClient = Annotated[Client, Depends(get_temporal_client)]
 TaskQueue = Annotated[str, Depends(get_task_queue)]
+Db = Annotated[asyncpg.Pool, Depends(get_db)]
+
+_not_found = HTTPException(404, "run not found")
 
 
 @router.post("", status_code=202, response_model=RunCreated)
-async def create_run(body: CreateRun, client: TemporalClient, task_queue: TaskQueue):
+async def create_run(body: CreateRun, user: CurrentUser, client: TemporalClient, task_queue: TaskQueue):
     run_id = str(uuid.uuid4())
     await client.start_workflow(
         AgentRunWorkflow.run,
-        RunInput(run_id=run_id, prompt=body.prompt),
+        RunInput(run_id=run_id, prompt=body.prompt, user_id=user.id),
         id=run_id,
         task_queue=task_queue,
+        # The owner travels with the execution, so GET /runs/{id} can check it from describe().
+        memo={"user_id": user.id},
     )
     return RunCreated(run_id=run_id)
 
 
+@router.get("", response_model=list[RunSummary])
+async def list_runs(user: CurrentUser, db: Db, limit: Annotated[int, Query(ge=1, le=100)] = 20):
+    """The user's finished runs, newest first. In-flight runs appear once RUN_FINISHED is recorded."""
+    rows = await db.fetch(
+        """
+        SELECT run_id, status, prompt, answer, error, started_at, finished_at
+        FROM runs WHERE user_id = $1 ORDER BY finished_at DESC LIMIT $2
+        """,
+        user.id,
+        limit,
+    )
+    return [RunSummary(**dict(r)) for r in rows]
+
+
 @router.get("/{run_id}", response_model=RunStatus)
-async def get_run(run_id: str, client: TemporalClient):
+async def get_run(run_id: str, user: CurrentUser, client: TemporalClient):
     handle = client.get_workflow_handle_for(AgentRunWorkflow.run, run_id)
     try:
         desc = await handle.describe()
     except RPCError as e:
         if e.status == RPCStatusCode.NOT_FOUND:
-            raise HTTPException(404, "run not found")
+            raise _not_found
         raise
+    # Someone else's run looks exactly like a missing one, so run ids can't be probed.
+    if (await desc.memo_value("user_id", default=None)) != user.id:
+        raise _not_found
 
     out = RunStatus(run_id=run_id, status=desc.status.name.lower())
     if desc.status == WorkflowExecutionStatus.RUNNING:

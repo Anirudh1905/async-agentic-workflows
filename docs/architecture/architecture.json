@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Async Agentic Workflows — Phase 4",
+    "title": "Async Agentic Workflows — Phase 5",
     "output": "docs/architecture/architecture.html",
     "quality_profile": "showcase",
     "locale": "en"
@@ -12,7 +12,7 @@
       "id": "client",
       "type": "external",
       "label": "Client",
-      "sublabel": "curl / Tilt button",
+      "sublabel": "Bearer token · Tilt button",
       "pos": [
         40,
         260
@@ -26,8 +26,8 @@
       "id": "api",
       "type": "backend",
       "label": "Run API",
-      "sublabel": "FastAPI :8000",
-      "tag": "202, never waits",
+      "sublabel": "/runs · verifies JWT",
+      "tag": "202 · per-user runs",
       "pos": [
         260,
         260
@@ -38,12 +38,27 @@
       ]
     },
     {
+      "id": "login",
+      "type": "backend",
+      "label": "Login API",
+      "sublabel": "/auth · issues JWT",
+      "tag": "argon2id · 30m JWT",
+      "pos": [
+        40,
+        470
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
       "id": "temporal_ui",
       "type": "frontend",
       "label": "Temporal UI",
       "sublabel": "web :8233",
       "pos": [
-        380,
+        600,
         100
       ],
       "size": [
@@ -72,8 +87,8 @@
       "label": "Postgres · Temporal dbs",
       "sublabel": "temporal, temporal_visibility",
       "pos": [
-        600,
-        100
+        590,
+        400
       ],
       "size": [
         170,
@@ -100,7 +115,7 @@
       "type": "backend",
       "label": "LangGraph Agent",
       "sublabel": "model ⇄ tools loop",
-      "tag": "≤ 10 steps",
+      "tag": "≤ 10 steps · in worker",
       "pos": [
         1200,
         260
@@ -145,7 +160,7 @@
       "sublabel": "unused until phase 6",
       "tag": "AOF :6380",
       "pos": [
-        300,
+        1460,
         470
       ],
       "size": [
@@ -213,8 +228,8 @@
     {
       "id": "webhook",
       "type": "external",
-      "label": "Webhook",
-      "sublabel": "NOTIFY_WEBHOOK_URL",
+      "label": "webhook-tester",
+      "sublabel": "compose :8082 inbox",
       "pos": [
         1520,
         680
@@ -222,19 +237,20 @@
       "size": [
         150,
         64
-      ]
+      ],
+      "tag": "NOTIFY_WEBHOOK_URL · UI /s/<uuid>"
     },
     {
       "id": "pg_app",
       "type": "database",
       "label": "Postgres · agentic db",
-      "sublabel": "runs, notifications_sent",
+      "sublabel": "users, runs, notifications_sent",
       "pos": [
-        880,
+        860,
         880
       ],
       "size": [
-        150,
+        190,
         64
       ]
     }
@@ -244,8 +260,14 @@
       "id": "client-api",
       "from": "client",
       "to": "api",
-      "label": "HTTP /runs",
+      "label": "HTTP + JWT",
       "variant": "emphasis"
+    },
+    {
+      "id": "client-login",
+      "from": "client",
+      "to": "login",
+      "label": "login"
     },
     {
       "id": "api-temporal",
@@ -284,14 +306,18 @@
       "id": "temporal-pg",
       "from": "temporal",
       "to": "pg_temporal",
-      "label": "history"
+      "label": "history",
+      "fromSide": "bottom",
+      "toSide": "top"
     },
     {
       "id": "ui-temporal",
       "from": "temporal_ui",
       "to": "temporal",
       "label": "inspect runs",
-      "variant": "dashed"
+      "variant": "dashed",
+      "toSide": "top",
+      "fromSide": "bottom"
     },
     {
       "id": "worker-kafka",
@@ -304,13 +330,17 @@
       "id": "kafka-persist",
       "from": "kafka",
       "to": "cons_persist",
-      "label": "consume"
+      "label": "consume",
+      "fromSide": "left",
+      "toSide": "top"
     },
     {
       "id": "kafka-notify",
       "from": "kafka",
       "to": "cons_notify",
-      "label": "consume"
+      "label": "consume",
+      "fromSide": "right",
+      "toSide": "top"
     },
     {
       "id": "persist-dlq",
@@ -330,20 +360,62 @@
       "id": "persist-pg",
       "from": "cons_persist",
       "to": "pg_app",
-      "label": "UPSERT runs"
+      "label": "UPSERT runs",
+      "fromSide": "bottom",
+      "toSide": "top"
     },
     {
       "id": "notify-pg",
       "from": "cons_notify",
       "to": "pg_app",
-      "label": "claim event_id"
+      "label": "claim event_id",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          1275,
+          912
+        ]
+      ]
     },
     {
       "id": "notify-webhook",
       "from": "cons_notify",
       "to": "webhook",
-      "label": "POST if set",
+      "label": "POST event JSON",
       "variant": "dashed"
+    },
+    {
+      "id": "login-pg",
+      "from": "login",
+      "to": "pg_app",
+      "label": "users",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          105,
+          984
+        ],
+        [
+          955,
+          984
+        ]
+      ]
+    },
+    {
+      "id": "api-pg",
+      "from": "api",
+      "to": "pg_app",
+      "label": "user check · my runs",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          335,
+          912
+        ]
+      ]
     }
   ],
   "cards": [
@@ -351,9 +423,9 @@
       "dot": "cyan",
       "title": "Run lifecycle",
       "items": [
-        "POST /runs starts AgentRunWorkflow (workflow id = run_id) and returns 202",
+        "POST /runs needs a Bearer JWT; starts AgentRunWorkflow with user_id in input + memo, returns 202",
         "Status query: queued → running_agent → publishing → completed / failed",
-        "Failed runs still publish RUN_FINISHED with status failed, then the workflow fails"
+        "GET /runs/{id} is 404 unless the memo user_id is the caller; GET /runs lists your rows from Postgres"
       ]
     },
     {
@@ -369,9 +441,9 @@
       "dot": "amber",
       "title": "Runtime and what's next",
       "items": [
-        "Docker Compose: Temporal, Postgres (one instance, two logical stores), Kafka, Redis",
-        "Host via Tilt: API, worker, both consumers; CLI and Streamlit call the agent directly",
-        "Phase 5: login API fills user_id · Phase 6: Redis token-bucket rate limiting"
+        "Docker Compose: Temporal, Postgres (one instance, two logical stores), Kafka, Redis, webhook-tester",
+        "Host via Tilt: Login + Run API (two routers, one FastAPI process :8000), worker, both consumers",
+        "Phase 6: Redis token-bucket rate limiting in front of /auth and /runs"
       ]
     }
   ]
